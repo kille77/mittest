@@ -1,0 +1,275 @@
+:root {
+  --primary:#0d6efd;
+  --primary-dark:#0b5ed7;
+  --success:#198754;
+  --danger:#dc3545;
+  --bg:#f3f4f6;
+  --card-bg:#ffffff;
+  --border:#e5e7eb;
+  --text:#111827;
+  --muted:#6b7280;
+  --radius:12px;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+.view { display:none; padding:16px; }
+.view.active { display:block; }
+
+h1 { font-size:1.6rem; margin:0 0 12px; }
+h2 { font-size:1.2rem; margin:0 0 10px; }
+
+.card {
+  background:var(--card-bg);
+  border-radius:var(--radius);
+  padding:16px;
+  margin-bottom:16px;
+  box-shadow:0 1px 3px rgba(15,23,42,0.08);
+}
+
+label {
+  display:block;
+  font-size:0.85rem;
+  color:var(--muted);
+  margin-bottom:4px;
+}
+
+input, select, textarea {
+  width:100%;
+  padding:12px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  font-size:1rem;
+  margin-bottom:14px;
+}
+
+textarea {
+  resize:vertical;
+  min-height:60px;
+}
+
+.btn {
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:10px;
+  margin-top:10px;
+  font-size:17px;
+  cursor:pointer;
+}
+.btn.primary { background:var(--primary); color:white; }
+.btn.primary:hover { background:var(--primary-dark); }
+.btn.success { background:var(--success); color:white; }
+.btn.danger { background:var(--danger); color:white; }
+.btn.back {
+  width:auto;
+  background:none;
+  color:var(--primary);
+  font-size:20px;
+  padding:0;
+}
+
+header {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:16px;
+}
+
+.chip-group {
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.chip {
+  padding:8px 14px;
+  border-radius:20px;
+  background:#eee;
+  cursor:pointer;
+}
+.chip.active {
+  background:var(--primary);
+  color:white;
+}
+
+.axle-card {
+  background:white;
+  padding:12px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  margin-bottom:12px;
+  position:relative;
+}
+.axle-card h3 { margin:0 0 8px; }
+
+/* Hammasratas */
+.settings-icon {
+  position:absolute;
+  top:10px;
+  right:10px;
+  font-size:20px;
+  cursor:pointer;
+  user-select:none;
+}
+
+/* Popup-valikko */
+.settings-menu {
+  position:absolute;
+  top:40px;
+  right:10px;
+  background:white;
+  border:1px solid var(--border);
+  border-radius:8px;
+  box-shadow:0 4px 10px rgba(15,23,42,0.12);
+  z-index:50;
+  display:none;
+  min-width:180px;
+}
+.settings-menu div {
+  padding:10px;
+  cursor:pointer;
+  font-size:0.95rem;
+}
+.settings-menu div:hover {
+  background:#f3f4f6;
+}
+
+/* Vannetyyppi checkbox-radio */
+.rim-options {
+  display:flex;
+  gap:12px;
+  margin-bottom:14px;
+}
+.rim-option {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  cursor:pointer;
+}
+.rim-option input {
+  width:18px;
+  height:18px;
+}
+
+/* Axle type radio buttons */
+.axle-type {
+  width:auto !important;
+  margin-right:0 !important;
+  margin-bottom:0 !important;
+  accent-color:var(--primary);
+}
+
+/* Vehicle type checkboxes inline and clear appearance */
+.vehicle-type {
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+.vehicle-type label {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 10px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:transparent;
+  cursor:pointer;
+  font-size:0.95rem;
+}
+.vehicle-type input[type="checkbox"], .vehicle-type input[type="radio"] {
+  width:16px;
+  height:16px;
+  accent-color: var(--primary);
+}
+.vehicle-type input[type="checkbox"]:checked + span,
+.vehicle-type input[type="radio"]:checked + span {
+  background: var(--primary);
+  color: white;
+  padding:6px 8px;
+  border-radius:6px;
+}
+
+/* Tyre rows */
+.tyre-row {
+  display:flex;
+  flex-direction:column;
+  padding:10px 0;
+  border-bottom:1px solid var(--border);
+}
+.tyre-main {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+}
+.tyre-controls {
+  display:flex;
+  gap:6px;
+  align-items:center;
+}
+.tyre-controls input {
+  width:70px;
+  text-align:center;
+  padding:8px;
+}
+.btn-sm {
+  padding:6px 10px;
+  font-size:0.8rem;
+  background:#eee;
+  border-radius:8px;
+  border:none;
+  cursor:pointer;
+}
+
+.note-box {
+  margin-top:6px;
+  background:#fff8d1;
+  padding:8px;
+  border-radius:8px;
+  border:1px solid #e0d48a;
+}
+
+.history-item {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:10px 0;
+  border-bottom:1px solid var(--border);
+}
+.history-actions {
+  display:flex;
+  gap:6px;
+}
+.history-actions .btn-sm {
+  border-radius:999px;
+}
+
+/* Autocomplete */
+.autocomplete-wrapper {
+  position:relative;
+}
+.autocomplete-suggestions {
+  position:absolute;
+  top:100%;
+  left:0;
+  right:0;
+  background:white;
+  border:1px solid var(--border);
+  border-radius:8px;
+  box-shadow:0 4px 10px rgba(15,23,42,0.12);
+  z-index:20;
+  max-height:200px;
+  overflow-y:auto;
+}
+.autocomplete-suggestion {
+  padding:8px 10px;
+  cursor:pointer;
+  font-size:0.95rem;
+}
+.autocomplete-suggestion:hover {
+  background:#f3f4f6;
+}
