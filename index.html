@@ -369,13 +369,13 @@ function buildMeasurementUI(positions, containerEl, previous=null, prevNotes=nul
   positions.forEach((p,i)=>{
     const row = document.createElement("div");
     row.className = "tyre-row";
+    const value = previous ? previous[i] : 10;
     row.innerHTML = `
       <div class="tyre-main">
         <div>${p}</div>
-        <div class="tyre-controls">
-          <button class="btn-sm minus">−</button>
-          <input type="number" step="0.1" value="${previous?previous[i]:10}">
-          <button class="btn-sm plus">+</button>
+        <div class="tyre-controls" style="display:flex;align-items:center;gap:10px;">
+          <input type="range" min="0" max="20" step="0.5" value="${value}" class="tyre-slider" style="width:120px;">
+          <span class="slider-value">${value}</span> mm
           <button class="btn-sm note-toggle">Huomio</button>
           <button class="btn-sm photo-btn">Ota kuva</button>
           <input type="file" accept="image/*" capture="environment" class="photo-input" style="display:none">
@@ -392,9 +392,12 @@ function buildMeasurementUI(positions, containerEl, previous=null, prevNotes=nul
     `;
     containerEl.appendChild(row);
 
-    const input = row.querySelector("input[type='number']");
-    row.querySelector(".minus").onclick = ()=> input.value = (parseFloat(input.value||0)-0.5).toFixed(1);
-    row.querySelector(".plus").onclick = ()=> input.value = (parseFloat(input.value||0)+0.5).toFixed(1);
+    // Slider logic
+    const slider = row.querySelector(".tyre-slider");
+    const valueSpan = row.querySelector(".slider-value");
+    slider.addEventListener("input", ()=>{
+      valueSpan.textContent = parseFloat(slider.value).toFixed(1);
+    });
 
     const noteBox = row.querySelector(".note-box");
     row.querySelector(".note-toggle").onclick = ()=>{ noteBox.style.display = noteBox.style.display==="none" ? "block" : "none"; };
@@ -1066,8 +1069,8 @@ document.getElementById('btnSaveInspection').onclick = ()=>{
 
   plateInput.value = plate;
 
-  const inputs = measureList.querySelectorAll("input[type='number']");
-  const values = [...inputs].map(i=>parseFloat(i.value||0));
+  const sliders = measureList.querySelectorAll("input.tyre-slider");
+  const values = [...sliders].map(i=>parseFloat(i.value||0));
 
   const noteInputs = measureList.querySelectorAll('.note-input');
   const notes = [...noteInputs].map(t=>t.value.trim() || null);

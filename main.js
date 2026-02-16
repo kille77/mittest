@@ -154,7 +154,7 @@ document.getElementById('btnSaveInspection').onclick = ()=>{
 
   plateInput.value = plate;
 
-  const inputs = measureList.querySelectorAll("input[type='number']");
+  const inputs = measureList.querySelectorAll("input.tyre-slider");
   const values = [...inputs].map(i=>parseFloat(i.value||0));
 
   const noteInputs = measureList.querySelectorAll('.note-input');
