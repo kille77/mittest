@@ -126,7 +126,7 @@ function buildAxleUI(containerEl, count, existing=[], StorageKeysRef, formatTyre
         div.className = 'tyre-config-row';
         div.innerHTML = `
           <label>${pos.label}</label>
-          <input class="tyre-size" data-pos="${pos.key}" placeholder="Koko" value="${posData.size||''}" inputmode="numeric" pattern="[0-9]*">
+          <input type="text" class="tyre-size" data-pos="${pos.key}" placeholder="Koko" value="${posData.size||''}" inputmode="numeric" pattern="[0-9]*">
           <input class="tyre-make" data-pos="${pos.key}" placeholder="Merkki" value="${posData.make||''}">
           <input class="tyre-rim" data-pos="${pos.key}" placeholder="Vanne" value="${posData.rim||''}">
           <input class="tyre-et" data-pos="${pos.key}" placeholder="ET" value="${posData.et||''}">
