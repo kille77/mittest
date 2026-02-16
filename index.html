@@ -177,8 +177,10 @@ function formatTyreSize(raw) {
   if (!raw) return "";
   if (raw.includes("/")) return raw.trim();
   const d = raw.replace(/\D/g,"");
-  if (d.length === 7) return `${d.slice(0,3)}/${d.slice(3,5)}R${d.slice(5,7)}`;
+  // 38555225 -> 385/55R22.5
   if (d.length === 8) return `${d.slice(0,3)}/${d.slice(3,5)}R${d.slice(5,7)}.${d.slice(7)}`;
+  // 3855522 -> 385/55R22
+  if (d.length === 7) return `${d.slice(0,3)}/${d.slice(3,5)}R${d.slice(5,7)}`;
   return raw.trim();
 }
 function setupAutocomplete(inputEl, suggestionsEl, getItems, onSelect, transformInput=null) {
@@ -276,7 +278,7 @@ function buildAxleUI(containerEl, count, existing=[], StorageKeysRef, formatTyre
       </select>
 
       <label>Rengaskoko</label>
-      <input class="axle-size" value="${d.size||""}" placeholder="315/70R22.5">
+        <input class="axle-size" value="${d.size||""}" placeholder="315/70R22.5" inputmode="numeric" pattern="[0-9]*">
 
       <label>Merkki ja malli</label>
       <input class="axle-make" value="${d.make||""}">
