@@ -190,8 +190,8 @@ function buildMeasurementUI(positions, containerEl, previous=null, prevNotes=nul
           <button class="btn-sm minus">−</button>
           <input type="number" step="0.1" value="${previous?previous[i]:10}">
           <button class="btn-sm plus">+</button>
-          <button class="btn-sm note-toggle">Huomio</button>
-          <button class="btn-sm photo-btn">Ota kuva</button>
+          <button class="btn-sm note-toggle" title="Huomio" aria-label="Huomio">&#9888;</button>
+          <button class="btn-sm photo-btn" title="Ota kuva" aria-label="Ota kuva">&#128247;</button>
           <input type="file" accept="image/*" capture="environment" class="photo-input" style="display:none">
         </div>
       </div>
