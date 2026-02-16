@@ -366,67 +366,117 @@ function buildPositions(config) {
   return [...left, ...right];
 }
 
-function buildMeasurementUI(positions, containerEl, previous=null, prevNotes=null, prevPhotos=null) {
+function buildMeasurementUI(
+  positions,
+  containerEl,
+  previous = null,
+  prevNotes = null,
+  prevPhotos = null
+) {
   containerEl.innerHTML = "";
-  positions.forEach((p,i)=>{
+
+  positions.forEach((p, i) => {
     const row = document.createElement("div");
     row.className = "tyre-row";
+
     const value = previous ? previous[i] : 10;
+    const noteText = prevNotes && prevNotes[i] ? prevNotes[i] : "";
+    const hasPhoto = prevPhotos && prevPhotos[i];
+
     row.innerHTML = `
       <div class="tyre-main">
         <div>${p}</div>
         <div class="tyre-controls" style="display:flex;align-items:center;gap:10px;">
-          <input type="range" min="0" max="20" step="0.5" value="${value}" class="tyre-slider" style="width:100px;">
-          <span class="slider-value">${value}</span> mm
+          <input
+            type="range"
+            min="0"
+            max="20"
+            step="0.5"
+            value="${value}"
+            class="tyre-slider"
+            style="width:100px;"
+          >
+          <span class="slider-value">${parseFloat(value).toFixed(1)}</span> mm
           <button class="btn-sm note-toggle" title="Huomio">&#9888;</button>
           <button class="btn-sm photo-btn" title="Ota kuva">&#128247;</button>
-          <input type="file" accept="image/*" capture="environment" class="photo-input" style="display:none">
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            class="photo-input"
+            style="display:none;"
+          >
         </div>
       </div>
+
       <div style="display:flex;gap:10px;align-items:flex-start;margin-top:6px;">
-        <div class="note-box" style="display:${prevNotes && prevNotes[i] ? "block" : "none"};flex:1;">
-          <textarea class="note-input" placeholder="Kirjoita huomio...">${prevNotes && prevNotes[i] ? prevNotes[i] : ""}</textarea>
+        <div class="note-box" style="display:none;flex:1;">
+          <textarea class="note-input" placeholder="Kirjoita huomio...">${noteText}</textarea>
         </div>
-        <div class="photo-preview" style="width:80px;height:60px;border:1px solid #eee;border-radius:6px;overflow:hidden;display:${prevPhotos && prevPhotos[i] ? 'block' : 'none'};">
-          ${prevPhotos && prevPhotos[i] ? `<img src="${prevPhotos[i]}" style="width:100%;height:100%;object-fit:cover">` : ''}
+
+        <div class="photo-preview" style="
+          width:80px;
+          height:60px;
+          border:1px solid #eee;
+          border-radius:6px;
+          overflow:hidden;
+          display:${hasPhoto ? "block" : "none"};
+        ">
+          ${hasPhoto ? `<img src="${prevPhotos[i]}" style="width:100%;height:100%;object-fit:cover">` : ""}
         </div>
       </div>
     `;
+
     containerEl.appendChild(row);
 
-    // Slider logic
+    /* ---------- Slider ---------- */
     const slider = row.querySelector(".tyre-slider");
     const valueSpan = row.querySelector(".slider-value");
-    slider.addEventListener("input", ()=>{
+
+    slider.addEventListener("input", () => {
       valueSpan.textContent = parseFloat(slider.value).toFixed(1);
     });
 
+    /* ---------- Notes ---------- */
     const noteBox = row.querySelector(".note-box");
-    row.querySelector(".note-toggle").onclick = ()=>{ noteBox.style.display = noteBox.style.display==="none" ? "block" : "none"; };
+    const noteBtn = row.querySelector(".note-toggle");
 
-    // Photo handling
-    const photoBtn = row.querySelector('.photo-btn');
-    const photoInput = row.querySelector('.photo-input');
-    const preview = row.querySelector('.photo-preview');
+    noteBtn.onclick = () => {
+      noteBox.style.display =
+        noteBox.style.display === "none" ? "block" : "none";
+    };
 
-    if (prevPhotos && prevPhotos[i]) {
+    // Optional: mark button if a note exists
+    if (noteText.trim()) {
+      noteBtn.classList.add("has-note");
+    }
+
+    /* ---------- Photos ---------- */
+    const photoBtn = row.querySelector(".photo-btn");
+    const photoInput = row.querySelector(".photo-input");
+    const preview = row.querySelector(".photo-preview");
+
+    if (hasPhoto) {
       row.dataset.photo = prevPhotos[i];
     }
 
-    photoBtn.onclick = ()=> photoInput.click();
-    photoInput.onchange = (e)=>{
-      const f = e.target.files && e.target.files[0];
-      if (!f) return;
-      const r = new FileReader();
-      r.onload = ()=>{
-        row.dataset.photo = r.result;
-        preview.innerHTML = `<img src="${r.result}" style="width:100%;height:100%;object-fit:cover">`;
-        preview.style.display = 'block';
+    photoBtn.onclick = () => photoInput.click();
+
+    photoInput.onchange = (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        row.dataset.photo = reader.result;
+        preview.innerHTML = `<img src="${reader.result}" style="width:100%;height:100%;object-fit:cover">`;
+        preview.style.display = "block";
       };
-      r.readAsDataURL(f);
+      reader.readAsDataURL(file);
     };
   });
 }
+
 
 function renderHistory(containerEl, HistoryManagerRef) {
   const list = HistoryManagerRef.load();
@@ -1151,3 +1201,4 @@ window.__app = { renderHistory };
 })();</script>
 </body>
 </html>
+
