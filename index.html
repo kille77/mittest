@@ -353,13 +353,13 @@ function buildPositions(config) {
     const n = index + 1;
 
     if (axle.type === "single") {
-      left.push(`Akseli ${n} vasen`);
-      right.push(`Akseli ${n} oikea`);
+      left.push(`Vasen ${n} `);
+      right.push(`Oikea ${n} `);
     } else {
-      left.push(`Akseli ${n} vasen ulompi`);
-      left.push(`Akseli ${n} vasen sisempi`);
-      right.push(`Akseli ${n} oikea ulompi`);
-      right.push(`Akseli ${n} oikea sisempi`);
+      left.push(`Vasen ulompi ${n} `);
+      left.push(`Vasen sisempi ${n} `);
+      right.push(`Oikea ulompi ${n} `);
+      right.push(`Oikea sisempi ${n} `);
     }
   });
 
@@ -376,10 +376,10 @@ function buildMeasurementUI(positions, containerEl, previous=null, prevNotes=nul
       <div class="tyre-main">
         <div>${p}</div>
         <div class="tyre-controls" style="display:flex;align-items:center;gap:10px;">
-          <input type="range" min="0" max="20" step="0.5" value="${value}" class="tyre-slider" style="width:120px;">
+          <input type="range" min="0" max="20" step="0.5" value="${value}" class="tyre-slider" style="width:100px;">
           <span class="slider-value">${value}</span> mm
-          <button class="btn-sm note-toggle">Huomio</button>
-          <button class="btn-sm photo-btn">Ota kuva</button>
+          <button class="btn-sm note-toggle" title="Huomio">&#9888;</button>
+          <button class="btn-sm photo-btn" title="Ota kuva">&#128247;</button>
           <input type="file" accept="image/*" capture="environment" class="photo-input" style="display:none">
         </div>
       </div>
