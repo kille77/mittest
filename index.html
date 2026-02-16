@@ -695,8 +695,8 @@ function generatePdf(index) {
     const w = r.wear[i];
     let note = r.notes && r.notes[i] ? r.notes[i] : "";
     if (!note) {
-      if (v<5) note="Vaihda";
-      else if (v<7) note="Seurattava";
+      if (v<=5) note="Vaihda";
+      else if (v<=7) note="Seurattava";
       else if (v>7) note="OK";
     }
 
@@ -1202,6 +1202,7 @@ window.__app = { renderHistory };
 })();</script>
 </body>
 </html>
+
 
 
 
