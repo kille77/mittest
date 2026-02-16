@@ -2,8 +2,10 @@ function formatTyreSize(raw) {
   if (!raw) return "";
   if (raw.includes("/")) return raw.trim();
   const d = raw.replace(/\D/g,"");
-  if (d.length === 7) return `${d.slice(0,3)}/${d.slice(3,5)}R${d.slice(5,7)}`;
+  // 38555225 -> 385/55R22.5
   if (d.length === 8) return `${d.slice(0,3)}/${d.slice(3,5)}R${d.slice(5,7)}.${d.slice(7)}`;
+  // 3855522 -> 385/55R22
+  if (d.length === 7) return `${d.slice(0,3)}/${d.slice(3,5)}R${d.slice(5,7)}`;
   return raw.trim();
 }
 function setupAutocomplete(inputEl, suggestionsEl, getItems, onSelect, transformInput=null) {
@@ -124,7 +126,7 @@ function buildAxleUI(containerEl, count, existing=[], StorageKeysRef, formatTyre
         div.className = 'tyre-config-row';
         div.innerHTML = `
           <label>${pos.label}</label>
-          <input class="tyre-size" data-pos="${pos.key}" placeholder="Koko" value="${posData.size||''}">
+          <input class="tyre-size" data-pos="${pos.key}" placeholder="Koko" value="${posData.size||''}" inputmode="numeric" pattern="[0-9]*">
           <input class="tyre-make" data-pos="${pos.key}" placeholder="Merkki" value="${posData.make||''}">
           <input class="tyre-rim" data-pos="${pos.key}" placeholder="Vanne" value="${posData.rim||''}">
           <input class="tyre-et" data-pos="${pos.key}" placeholder="ET" value="${posData.et||''}">
