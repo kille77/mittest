@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title></title>
+<title>Rengastarkastus 3.0</title>
 
 <link rel="stylesheet" href="./styles.css">
 </head>
@@ -58,6 +58,18 @@
       <div class="autocomplete-suggestions" id="companySuggestions" style="display:none;"></div>
     </div>
 
+    <label>Merkki</label>
+    <div class="autocomplete-wrapper">
+      <input id="make">
+      <div class="autocomplete-suggestions" id="makeSuggestions" style="display:none;"></div>
+    </div>
+
+    <label>Malli</label>
+    <div class="autocomplete-wrapper">
+      <input id="model">
+      <div class="autocomplete-suggestions" id="modelSuggestions" style="display:none;"></div>
+    </div>
+
     <label>Ajoneuvotyyppi</label>
     <div id="vehicleType" class="vehicle-type">
       <label><input type="radio" name="vehicleType" value="Kuorma-auto"><span>Kuorma-auto</span></label>
@@ -66,7 +78,7 @@
     </div>
 
     <button class="btn primary" id="btnStartInspection">Uusi tarkastus</button>
-    <button class="btn" id="btnOpenConfig">Rengaskonfiguraatio</button>
+    <button class="btn" id="btnOpenConfig">Akseli konfiguraatio</button>
   </div>
 
   <div class="card">
@@ -104,6 +116,24 @@
   <button class="btn primary" id="btnSaveInspection">Tallenna tarkastus</button>
 </section>
 
+<!-- PRESET CONFIG MODAL -->
+<div id="presetModal" class="preset-modal" style="display:none;">
+  <div class="preset-modal-backdrop"></div>
+  <div class="preset-modal-card">
+    <h2>Valitse ajoneuvotyyppi</h2>
+    <div id="presetTypes" class="preset-types"></div>
+  </div>
+</div>
+
+<!-- AXLE CONFIG MODAL -->
+<div id="axleConfigModal" class="preset-modal" style="display:none;">
+  <div class="preset-modal-backdrop"></div>
+  <div class="preset-modal-card">
+    <h2>Valitse akselikonfiguraatio</h2>
+    <div id="axleConfigs" class="preset-types"></div>
+  </div>
+</div>
+
 </div>
 
 <script src="./jspdf.umd.min.js"></script>
@@ -113,11 +143,14 @@ class _StorageKeys {
   static history() { return "history"; }
   static plates() { return "plates"; }
   static companies() { return "companies"; }
+  static makes() { return "makes"; }
+  static models() { return "models"; }
   static tyreSizes() { return "tyreSizes"; }
   static tyreMakes() { return "tyreMakes"; }
   static etValues() { return "etValues"; }
   static plateCompanyMap() { return "plateCompanyMap"; }
   static plateTypeMap() { return "plateTypeMap"; }
+  static plateMakeModelMap() { return "plateMakeModelMap"; }
 }
 
 function loadList(key) {
@@ -173,6 +206,187 @@ window.HistoryManager = HistoryManager;
 </script>
 
 <script>
+// Vehicle type presets
+const VEHICLE_PRESETS = {
+  'Kuorma-auto': [
+    // 2-axle
+    {
+      name: '4x2',
+      axles: 2,
+      data: [
+        { type: 'single' },
+        { type: 'dual' }
+      ]
+    },
+    {
+      name: '4x4',
+      axles: 2,
+      data: [
+        { type: 'single' },
+        { type: 'dual' }
+      ]
+    },
+
+    // 3-axle
+    {
+      name: '6x2',
+      axles: 3,
+      data: [
+        { type: 'single' },
+        { type: 'dual' },
+        { type: 'dual' }
+      ]
+    },
+    {
+      name: '6x2*4',
+      axles: 3,
+      data: [
+        { type: 'single' },
+        { type: 'dual' },
+        { type: 'dual' }
+      ]
+    },
+    {
+      name: '6x4',
+      axles: 3,
+      data: [
+        { type: 'single' },
+        { type: 'dual' },
+        { type: 'dual' }
+      ]
+    },
+    {
+      name: '6x6',
+      axles: 3,
+      data: [
+        { type: 'single' },
+        { type: 'dual' },
+        { type: 'dual' }
+      ]
+    },
+
+    // 4-axle
+    {
+      name: '8x2',
+      axles: 4,
+      data: [
+        { type: 'single' },
+        { type: 'dual' },
+        { type: 'dual' },
+        { type: 'dual' }
+      ]
+    },
+    {
+      name: '8x2*4',
+      axles: 4,
+      data: [
+        { type: 'single' },
+        { type: 'dual' },
+        { type: 'dual' },
+        { type: 'dual' }
+      ]
+    },
+    {
+      name: '8x4',
+      axles: 4,
+      data: [
+        { type: 'single' },
+        { type: 'dual' },
+        { type: 'dual' },
+        { type: 'dual' }
+      ]
+    },
+    {
+      name: '8x6',
+      axles: 4,
+      data: [
+        { type: 'single' },
+        { type: 'dual' },
+        { type: 'dual' },
+        { type: 'dual' }
+      ]
+    },
+    {
+      name: '8x8',
+      axles: 4,
+      data: [
+        { type: 'single' },
+        { type: 'dual' },
+        { type: 'dual' },
+        { type: 'dual' }
+      ]
+    }
+  ],
+
+  'Perävaunu': [
+    {
+      name: '4x0 (single/single)',
+      axles: 2,
+      data: [
+        { type: 'single' },
+        { type: 'single' }
+      ]
+    },
+    {
+      name: '4x0 (dual/dual)',
+      axles: 2,
+      data: [
+        { type: 'dual' },
+        { type: 'dual' }
+      ]
+    },
+    {
+      name: '6x0 (single/single/single)',
+      axles: 3,
+      data: [
+        { type: 'single' },
+        { type: 'single' },
+        { type: 'single' }
+      ]
+    },
+    {
+      name: '6x0 (dual/dual/dual)',
+      axles: 3,
+      data: [
+        { type: 'dual' },
+        { type: 'dual' },
+        { type: 'dual' }
+      ]
+    },
+    {
+      name: '8x0 (dual/dual/dual/dual)',
+      axles: 4,
+      data: [
+        { type: 'dual' },
+        { type: 'dual' },
+        { type: 'dual' },
+        { type: 'dual' }
+      ]
+    }
+  ],
+
+  'Auto': [
+    {
+      name: '4x2 (single/single)',
+      axles: 2,
+      data: [
+        { type: 'single' },
+        { type: 'single' }
+      ]
+    },
+    {
+      name: '4x2 (single/dual)',
+      axles: 2,
+      data: [
+        { type: 'single' },
+        { type: 'dual' }
+      ]
+    }
+  ]
+};
+
+
+
 function formatTyreSize(raw) {
   if (!raw) return "";
   if (raw.includes("/")) return raw.trim();
@@ -182,6 +396,12 @@ function formatTyreSize(raw) {
   // 3855522 -> 385/55R22
   if (d.length === 7) return `${d.slice(0,3)}/${d.slice(3,5)}R${d.slice(5,7)}`;
   return raw.trim();
+}
+function formatMmValue(val) {
+  if (val == null || val === "") return "-";
+  const num = Number(val);
+  if (Number.isNaN(num)) return String(val);
+  return Number.isInteger(num) ? String(num) : num.toFixed(1);
 }
 function setupAutocomplete(inputEl, suggestionsEl, getItems, onSelect, transformInput=null) {
   function closeSuggestions() {
@@ -353,130 +573,294 @@ function buildPositions(config) {
     const n = index + 1;
 
     if (axle.type === "single") {
-      left.push(`Vasen ${n} `);
-      right.push(`Oikea ${n} `);
+      left.push(`Akseli ${n} vasen`);
+      right.push(`Akseli ${n} oikea`);
     } else {
-      left.push(`Vasen ulompi ${n} `);
-      left.push(`Vasen sisempi ${n} `);
-      right.push(`Oikea ulompi ${n} `);
-      right.push(`Oikea sisempi ${n} `);
+      left.push(`Akseli ${n} vasen ulompi`);
+      left.push(`Akseli ${n} vasen sisempi`);
+      right.push(`Akseli ${n} oikea ulompi`);
+      right.push(`Akseli ${n} oikea sisempi`);
     }
   });
 
   return [...left, ...right];
 }
 
-function buildMeasurementUI(
-  positions,
-  containerEl,
-  previous = null,
-  prevNotes = null,
-  prevPhotos = null
-) {
+function buildMeasurementUI(positions, config, containerEl, previous=null, prevNotes=null, prevPhotos=null, prevSizes=null, prevRims=null, prevMakes=null) {
   containerEl.innerHTML = "";
 
-  positions.forEach((p, i) => {
-    const row = document.createElement("div");
-    row.className = "tyre-row";
+  const values = positions.map((_,i)=> previous && previous[i]!=null ? Number(previous[i]) : 10);
+  const notes = positions.map((_,i)=> prevNotes && prevNotes[i] ? String(prevNotes[i]) : "");
+  const photos = positions.map((_,i)=> prevPhotos && prevPhotos[i] ? String(prevPhotos[i]) : null);
 
-    const value = previous ? previous[i] : 10;
-    const noteText = prevNotes && prevNotes[i] ? prevNotes[i] : "";
-    const hasPhoto = prevPhotos && prevPhotos[i];
+  const caption = document.createElement('div');
+  caption.className = 'diagram-caption';
+  caption.textContent = 'Valitse rengas:';
+  containerEl.appendChild(caption);
 
-    row.innerHTML = `
-      <div class="tyre-main">
-        <div>${p}</div>
-        <div class="tyre-controls" style="display:flex;align-items:center;gap:10px;">
-          <input
-            type="range"
-            min="0"
-            max="20"
-            step="0.5"
-            value="${value}"
-            class="tyre-slider"
-            style="width:100px;"
-          >
-          <span class="slider-value">${parseFloat(value).toFixed(1)}</span> mm
-          <button class="btn-sm note-toggle" title="Huomio">&#9888;</button>
-          <button class="btn-sm photo-btn" title="Ota kuva">&#128247;</button>
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            class="photo-input"
-            style="display:none;"
-          >
-        </div>
+  const diagram = document.createElement('div');
+  diagram.className = 'tyre-diagram';
+  containerEl.appendChild(diagram);
+
+  const cfg = (config && config.data) ? config.data : [];
+  const totalLeft = cfg.reduce((sum,a)=> sum + (a.type === 'dual' ? 2 : 1), 0);
+  let leftIndex = 0;
+  let rightIndex = totalLeft;
+
+  const modal = document.createElement('div');
+  modal.className = 'tire-modal';
+  modal.innerHTML = `
+    <div class="tire-modal-backdrop"></div>
+    <div class="tire-modal-card">
+      <div class="tire-modal-header">
+        <div class="tire-modal-title"></div>
+        <button class="btn-sm tire-modal-close" type="button">Sulje</button>
       </div>
-
-      <div style="display:flex;gap:10px;align-items:flex-start;margin-top:6px;">
-        <div class="note-box" style="display:none;flex:1;">
-          <textarea class="note-input" placeholder="Kirjoita huomio...">${noteText}</textarea>
-        </div>
-
-        <div class="photo-preview" style="
-          width:80px;
-          height:60px;
-          border:1px solid #eee;
-          border-radius:6px;
-          overflow:hidden;
-          display:${hasPhoto ? "block" : "none"};
-        ">
-          ${hasPhoto ? `<img src="${prevPhotos[i]}" style="width:100%;height:100%;object-fit:cover">` : ""}
-        </div>
+      <div class="tire-modal-grid"></div>
+      <div class="tire-modal-data">
+        <label>Rengaskoko</label>
+        <input type="text" class="tire-size-input" placeholder="200/55R16" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
+        <label>Rengastammi/Malli</label>
+        <input type="text" class="tire-make-input" placeholder="Esim. Michelin" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
+        <label>Vannetyyppi</label>
+        <select class="tire-rim-input" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
+          <option value="">Valitse</option>
+          <option value="Alumiini">Alumiini</option>
+          <option value="Teräs">Teräs</option>
+        </select>
       </div>
-    `;
+      <div class="tire-modal-actions">
+        <button class="btn-sm note-toggle" type="button">Huomio</button>
+        <button class="btn-sm photo-btn" type="button">Kamera</button>
+        <input type="file" accept="image/*" capture="environment" class="photo-input" style="display:none">
+      </div>
+      <div class="note-box" style="display:none;">
+        <textarea class="note-input" placeholder="Kirjoita huomio..."></textarea>
+      </div>
+      <div class="photo-preview" style="display:none;"></div>
+    </div>
+  `;
+  containerEl.appendChild(modal);
 
-    containerEl.appendChild(row);
+  const modalTitle = modal.querySelector('.tire-modal-title');
+  const modalGrid = modal.querySelector('.tire-modal-grid');
+  const tireSize = modal.querySelector('.tire-size-input');
+  const tireMake = modal.querySelector('.tire-make-input');
+  const tireRim = modal.querySelector('.tire-rim-input');
+  const noteToggle = modal.querySelector('.note-toggle');
+  const noteBox = modal.querySelector('.note-box');
+  const noteInput = modal.querySelector('.note-input');
+  const photoBtn = modal.querySelector('.photo-btn');
+  const photoInput = modal.querySelector('.photo-input');
+  const photoPreview = modal.querySelector('.photo-preview');
+  let currentNode = null;
 
-    /* ---------- Slider ---------- */
-    const slider = row.querySelector(".tyre-slider");
-    const valueSpan = row.querySelector(".slider-value");
+  function updateTireNode(node) {
+    const val = Number(node.dataset.value || 0);
+    const note = node.dataset.note || "";
+    const photo = node.dataset.photo || "";
+    node.querySelector('.tire-value').textContent = formatMmValue(val);
+    node.classList.toggle('has-note', !!note);
+    node.classList.toggle('has-photo', !!photo);
+  }
 
-    slider.addEventListener("input", () => {
-      valueSpan.textContent = parseFloat(slider.value).toFixed(1);
+  function setActiveValue(val) {
+    const target = Number(val);
+    modalGrid.querySelectorAll('.value-btn').forEach(b=>{
+      const btnVal = Number(b.dataset.value);
+      const isActive = Math.abs(btnVal - target) < 0.001;
+      b.classList.toggle('active', isActive);
+    });
+  }
+
+  function openModal(node, index) {
+    currentNode = node;
+    modalTitle.textContent = positions[index] || 'Rengas';
+
+    const tireS = node.dataset.size || "";
+    tireSize.value = tireS;
+    
+    const tireM = node.dataset.make || "";
+    tireMake.value = tireM;
+    
+    const tireR = node.dataset.rim || "";
+    tireRim.value = tireR;
+
+    const note = node.dataset.note || "";
+    noteInput.value = note;
+    noteToggle.classList.toggle('note-has-content', !!note);
+    noteBox.style.display = note ? 'block' : 'none';
+
+    const photo = node.dataset.photo || "";
+    if (photo) {
+      photoPreview.innerHTML = `<img src="${photo}" style="width:100%;height:100%;object-fit:cover">`;
+      photoPreview.style.display = 'block';
+    } else {
+      photoPreview.innerHTML = "";
+      photoPreview.style.display = 'none';
+    }
+
+    setActiveValue(Number(node.dataset.value || 0));
+    modal.classList.add('open');
+  }
+
+  function closeModal() {
+    modal.classList.remove('open');
+    currentNode = null;
+  }
+
+  modal.querySelector('.tire-modal-close').onclick = closeModal;
+  modal.querySelector('.tire-modal-backdrop').onclick = closeModal;
+
+  for (let i=0;i<=20;i++) {
+    const v = i;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'value-btn';
+    btn.dataset.value = String(v);
+    btn.textContent = formatMmValue(v);
+
+    let pressTimer = null;
+    let longPressTriggered = false;
+
+    function setValue(val) {
+      if (!currentNode) return;
+      currentNode.dataset.value = String(val);
+      updateTireNode(currentNode);
+      setActiveValue(val);
+    }
+
+    btn.addEventListener('mousedown', ()=>{
+      longPressTriggered = false;
+      pressTimer = setTimeout(()=>{
+        const half = Math.min(v + 0.5, 20);
+        setValue(half);
+        longPressTriggered = true;
+      }, 450);
+    });
+    btn.addEventListener('mouseup', ()=>{
+      if (pressTimer) clearTimeout(pressTimer);
+    });
+    btn.addEventListener('mouseleave', ()=>{
+      if (pressTimer) clearTimeout(pressTimer);
+    });
+    btn.addEventListener('touchstart', (e)=>{
+      e.preventDefault();
+      longPressTriggered = false;
+      pressTimer = setTimeout(()=>{
+        const half = Math.min(v + 0.5, 20);
+        setValue(half);
+        longPressTriggered = true;
+      }, 450);
+    }, { passive: false });
+    btn.addEventListener('touchend', ()=>{
+      if (pressTimer) clearTimeout(pressTimer);
     });
 
-    /* ---------- Notes ---------- */
-    const noteBox = row.querySelector(".note-box");
-    const noteBtn = row.querySelector(".note-toggle");
+    btn.addEventListener('click', ()=>{
+      if (longPressTriggered) return;
+      setValue(v);
+    });
 
-    noteBtn.onclick = () => {
-      noteBox.style.display =
-        noteBox.style.display === "none" ? "block" : "none";
+    modalGrid.appendChild(btn);
+  }
+
+  noteToggle.onclick = ()=>{
+    noteBox.style.display = noteBox.style.display === 'none' ? 'block' : 'none';
+  };
+
+  noteInput.addEventListener('input', ()=>{
+    if (!currentNode) return;
+    const val = noteInput.value.trim();
+    currentNode.dataset.note = val;
+    noteToggle.classList.toggle('note-has-content', !!val);
+    updateTireNode(currentNode);
+  });
+
+  tireSize.addEventListener('input', ()=>{
+    if (!currentNode) return;
+    const val = tireSize.value.trim();
+    currentNode.dataset.size = val;
+  });
+
+  tireMake.addEventListener('input', ()=>{
+    if (!currentNode) return;
+    const val = tireMake.value.trim();
+    currentNode.dataset.make = val;
+  });
+
+  tireRim.addEventListener('change', ()=>{
+    if (!currentNode) return;
+    const val = tireRim.value.trim();
+    currentNode.dataset.rim = val;
+  });
+
+  photoBtn.onclick = ()=> photoInput.click();
+  photoInput.onchange = (e)=>{
+    const f = e.target.files && e.target.files[0];
+    if (!f || !currentNode) return;
+    const r = new FileReader();
+    r.onload = ()=>{
+      currentNode.dataset.photo = r.result;
+      photoPreview.innerHTML = `<img src="${r.result}" style="width:100%;height:100%;object-fit:cover">`;
+      photoPreview.style.display = 'block';
+      updateTireNode(currentNode);
     };
+    r.readAsDataURL(f);
+  };
 
-    // Optional: mark button if a note exists
-    if (noteText.trim()) {
-      noteBtn.classList.add("has-note");
+  function createTireNode(index, label, axleConfig) {
+    const node = document.createElement('button');
+    node.type = 'button';
+    node.className = 'tire-node';
+    node.dataset.index = String(index);
+    node.dataset.value = String(values[index] != null ? values[index] : 10);
+    if (notes[index]) node.dataset.note = notes[index];
+    if (photos[index]) node.dataset.photo = photos[index];
+    // Use previous tire data if available, otherwise use axle config
+    node.dataset.size = (prevSizes && prevSizes[index]) ? prevSizes[index] : (axleConfig && axleConfig.size ? axleConfig.size : '');
+    node.dataset.make = (prevMakes && prevMakes[index]) ? prevMakes[index] : (axleConfig && axleConfig.make ? axleConfig.make : '');
+    node.dataset.rim = (prevRims && prevRims[index]) ? prevRims[index] : (axleConfig && axleConfig.rim ? axleConfig.rim : '');
+    node.innerHTML = `
+      <span class="tire-label">${label || ''}</span>
+      <span class="tire-value">${formatMmValue(node.dataset.value)}</span>
+      <span class="tire-unit">mm</span>
+    `;
+    updateTireNode(node);
+    node.onclick = ()=> openModal(node, index);
+    return node;
+  }
+
+  cfg.forEach((axle, axleIdx)=>{
+    const row = document.createElement('div');
+    row.className = 'axle-row';
+
+    const left = document.createElement('div');
+    left.className = 'tire-group left';
+    const right = document.createElement('div');
+    right.className = 'tire-group right';
+
+    const isDual = axle.type === 'dual';
+    if (isDual) {
+      left.appendChild(createTireNode(leftIndex++, 'U', axle));
+      left.appendChild(createTireNode(leftIndex++, 'S', axle));
+      right.appendChild(createTireNode(rightIndex++, 'S', axle));
+      right.appendChild(createTireNode(rightIndex++, 'U', axle));
+    } else {
+      left.appendChild(createTireNode(leftIndex++, '', axle));
+      right.appendChild(createTireNode(rightIndex++, '', axle));
     }
 
-    /* ---------- Photos ---------- */
-    const photoBtn = row.querySelector(".photo-btn");
-    const photoInput = row.querySelector(".photo-input");
-    const preview = row.querySelector(".photo-preview");
+    const axleLabel = document.createElement('div');
+    axleLabel.className = 'axle-label';
+    axleLabel.textContent = `Akseli ${axleIdx+1}`;
 
-    if (hasPhoto) {
-      row.dataset.photo = prevPhotos[i];
-    }
-
-    photoBtn.onclick = () => photoInput.click();
-
-    photoInput.onchange = (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        row.dataset.photo = reader.result;
-        preview.innerHTML = `<img src="${reader.result}" style="width:100%;height:100%;object-fit:cover">`;
-        preview.style.display = "block";
-      };
-      reader.readAsDataURL(file);
-    };
+    row.appendChild(left);
+    row.appendChild(axleLabel);
+    row.appendChild(right);
+    diagram.appendChild(row);
   });
 }
-
 
 function renderHistory(containerEl, HistoryManagerRef) {
   const list = HistoryManagerRef.load();
@@ -629,10 +1013,323 @@ window.setupTyreAutocomplete = setupTyreAutocomplete;
 window.buildAxleUI = buildAxleUI;
 window.buildPositions = buildPositions;
 window.buildMeasurementUI = buildMeasurementUI;
+window.formatMmValue = formatMmValue;
 window.renderHistory = renderHistory;
 </script>
 
 <script>
+function drawTireDiagram(doc, config, values, startX, startY, options={}) {
+  if (!config || !config.data || !config.data.length) return startY;
+
+  const rowHeight = options.rowHeight || 12;
+  const tireW = options.tireW || 6;
+  const tireH = options.tireH || 12;
+  const tireR = options.tireR || 3;
+  const gap = options.gap || 10;
+  const leftX = startX;
+  const rightX = startX + (options.rightOffset || 120);
+  const labelX = startX + (options.labelOffset || 58);
+  const fontSize = options.fontSize || 8;
+
+  const leftCount = config.data.reduce((sum,a)=> sum + (a.type === 'dual' ? 2 : 1), 0);
+  let leftIndex = 0;
+  let rightIndex = leftCount;
+
+  doc.setFontSize(fontSize);
+
+  function drawTire(x, y, value) {
+    doc.setDrawColor(55, 65, 81);
+    doc.setFillColor(240, 240, 240);
+    doc.roundedRect(x, y, tireW, tireH, tireR, tireR, 'FD');
+    doc.setTextColor(17, 24, 39);
+    doc.text(formatMmValue(value || 0), x + tireW / 2, y + (tireH / 2) + 2, { align: 'center' });
+  }
+
+  config.data.forEach((axle, idx)=>{
+    const y = startY + idx * rowHeight;
+    doc.text(`A${idx+1}`, labelX, y + 4);
+
+    const isDual = axle.type === 'dual';
+
+    if (isDual) {
+      const leftOuter = leftIndex++;
+      const leftInner = leftIndex++;
+      const rightInner = rightIndex++;
+      const rightOuter = rightIndex++;
+
+      drawTire(leftX, y, values[leftOuter]);
+      drawTire(leftX + gap, y, values[leftInner]);
+      drawTire(rightX, y, values[rightInner]);
+      drawTire(rightX + gap, y, values[rightOuter]);
+    } else {
+      const leftPos = leftIndex++;
+      const rightPos = rightIndex++;
+      drawTire(leftX, y, values[leftPos]);
+      drawTire(rightX + gap, y, values[rightPos]);
+    }
+  });
+
+  return startY + config.data.length * rowHeight;
+}
+
+function buildDiagramHtml(config, values) {
+  if (!config || !config.data || !config.data.length) return '';
+
+  const leftCount = config.data.reduce((sum,a)=> sum + (a.type === 'dual' ? 2 : 1), 0);
+  let leftIndex = 0;
+  let rightIndex = leftCount;
+
+  let html = '<div class="diagram">';
+  config.data.forEach((axle, idx)=>{
+    const isDual = axle.type === 'dual';
+    html += '<div class="diagram-row">';
+    html += '<div class="diagram-side">';
+    if (isDual) {
+      html += `<div class="diagram-tire">${formatMmValue(values[leftIndex++] || 0)}</div>`;
+      html += `<div class="diagram-tire">${formatMmValue(values[leftIndex++] || 0)}</div>`;
+    } else {
+      html += `<div class="diagram-tire">${formatMmValue(values[leftIndex++] || 0)}</div>`;
+    }
+    html += '</div>';
+    html += `<div class="diagram-label">A${idx+1}</div>`;
+    html += '<div class="diagram-side right">';
+    if (isDual) {
+      html += `<div class="diagram-tire">${formatMmValue(values[rightIndex++] || 0)}</div>`;
+      html += `<div class="diagram-tire">${formatMmValue(values[rightIndex++] || 0)}</div>`;
+    } else {
+      html += `<div class="diagram-tire">${formatMmValue(values[rightIndex++] || 0)}</div>`;
+    }
+    html += '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function ensureSpace(doc, y, needed, page) {
+  if (y + needed <= page.bottom) return y;
+  doc.addPage();
+  return page.top;
+}
+
+function drawSectionTitle(doc, title, y, page) {
+  y = ensureSpace(doc, y, 10, page);
+  doc.setFontSize(11);
+  doc.setTextColor(31, 41, 55);
+  doc.text(title, page.left, y);
+  doc.setDrawColor(226, 232, 240);
+  doc.line(page.left, y + 2, page.right, y + 2);
+  return y + 8;
+}
+
+function drawKeyValues(doc, y, items, page) {
+  const rowH = 6;
+  const colGap = 10;
+  const colW = (page.right - page.left - colGap) / 2;
+  doc.setFontSize(9);
+
+  for (let i = 0; i < items.length; i += 2) {
+    y = ensureSpace(doc, y, rowH, page);
+    const left = items[i];
+    const right = items[i + 1];
+
+    if (left) {
+      doc.setTextColor(107, 114, 128);
+      doc.text(left.label + ":", page.left, y);
+      doc.setTextColor(17, 24, 39);
+      doc.text(left.value || "-", page.left + 28, y);
+    }
+
+    if (right) {
+      doc.setTextColor(107, 114, 128);
+      doc.text(right.label + ":", page.left + colW + colGap, y);
+      doc.setTextColor(17, 24, 39);
+      doc.text(right.value || "-", page.left + colW + colGap + 28, y);
+    }
+
+    y += rowH;
+  }
+
+  return y + 2;
+}
+
+function drawTable(doc, y, headers, rows, colWidths, page) {
+  const rowH = 6;
+  const headerH = 7;
+  const startX = page.left;
+
+  function drawHeader() {
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(startX, y - 5, page.right - page.left, headerH, "F");
+    doc.setTextColor(55, 65, 81);
+    doc.setFontSize(9);
+    let x = startX;
+    headers.forEach((h, idx)=>{
+      doc.text(h, x + 2, y);
+      x += colWidths[idx];
+    });
+    y += headerH;
+  }
+
+  y = ensureSpace(doc, y, headerH + rowH, page);
+  drawHeader();
+
+  doc.setTextColor(17, 24, 39);
+  doc.setFontSize(9);
+
+  rows.forEach(row=>{
+    if (y + rowH > page.bottom) {
+      doc.addPage();
+      y = page.top + 5;
+      drawHeader();
+    }
+    let x = startX;
+    row.forEach((cell, idx)=>{
+      doc.text(String(cell || "-"), x + 2, y);
+      x += colWidths[idx];
+    });
+    doc.setDrawColor(226, 232, 240);
+    doc.line(startX, y + 2, page.right, y + 2);
+    y += rowH;
+  });
+
+  return y + 4;
+}
+
+function drawPhotoGallery(doc, y, r, page) {
+  const photos = (r.photos || []).map((p, idx)=>({ src: p, label: r.positions && r.positions[idx] ? r.positions[idx] : "" }))
+    .filter(p=>p.src);
+  if (!photos.length) return y;
+
+  doc.addPage();
+  y = page.top;
+  doc.setFontSize(12);
+  doc.setTextColor(31, 41, 55);
+  doc.text("Kuvagalleria", page.left, y);
+  y += 8;
+
+  const colW = 80;
+  const colGap = 10;
+  const imgW = colW;
+  const imgH = 50;
+  const labelH = 5;
+  const startX = page.left;
+
+  let x = startX;
+  let rowY = y;
+
+  photos.forEach((p, idx)=>{
+    if (rowY + imgH + labelH > page.bottom) {
+      doc.addPage();
+      rowY = page.top;
+      x = startX;
+    }
+
+    try {
+      const m = (p.src.match(/^data:image\/(\w+);base64,/) || [])[1] || "jpeg";
+      const fmt = (m.toUpperCase()==='JPG'?'JPEG':m.toUpperCase());
+      doc.addImage(p.src, fmt, x, rowY, imgW, imgH);
+    } catch(e) {}
+
+    doc.setFontSize(8);
+    doc.setTextColor(55, 65, 81);
+    doc.text(p.label || "", x, rowY + imgH + 4);
+
+    if (x + colW + colGap + colW <= page.right) {
+      x += colW + colGap;
+    } else {
+      x = startX;
+      rowY += imgH + labelH + 8;
+    }
+  });
+
+  return page.bottom;
+}
+
+function renderReport(doc, r, options={}) {
+  const page = { left: 20, right: 190, top: 18, bottom: 280 };
+  let y = page.top;
+
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  doc.rect(page.left, y, page.right - page.left, 16, "F");
+  doc.setTextColor(15, 23, 42);
+  doc.setFontSize(15);
+  doc.text("Rengastarkastusraportti", page.left + 4, y + 11);
+  doc.setFontSize(9);
+  doc.setTextColor(75, 85, 99);
+  doc.text(r.date || "", page.right - 2, y + 11, { align: 'right' });
+  y += 22;
+
+  y = drawSectionTitle(doc, "Ajoneuvon tiedot", y, page);
+  y = drawKeyValues(doc, y, [
+    { label: "Rek", value: r.plate || "-" },
+    { label: "Yritys", value: r.company || "-" },
+    { label: "Merkki", value: r.make || "-" },
+    { label: "Malli", value: r.model || "-" },
+    { label: "Tyyppi", value: r.type || "-" },
+    { label: "Akselien lkm", value: r.config && r.config.data ? String(r.config.data.length) : "-" }
+  ], page);
+
+  y = drawSectionTitle(doc, "Akselikonfiguraatio", y, page);
+  
+  // Build axle-level tire data from per-position data
+  const axleRows = [];
+  if (r.config && r.config.data) {
+    const totalLeft = r.config.data.reduce((sum,a)=> sum + (a.type === 'dual' ? 2 : 1), 0);
+    let leftIdx = 0, rightIdx = totalLeft;
+    
+    r.config.data.forEach((axle, axleNum)=>{
+      const isDual = axle.type === 'dual';
+      let tireSize = "-", tireRim = "-";
+      
+      if (isDual) {
+        const firstLeftIdx = leftIdx;
+        tireSize = (r.tireSizes && r.tireSizes[firstLeftIdx]) ? r.tireSizes[firstLeftIdx] : axle.size || "-";
+        tireRim = (r.tireRims && r.tireRims[firstLeftIdx]) ? r.tireRims[firstLeftIdx] : axle.rim || "-";
+        leftIdx += 2;
+        rightIdx += 2;
+      } else {
+        tireSize = (r.tireSizes && r.tireSizes[leftIdx]) ? r.tireSizes[leftIdx] : axle.size || "-";
+        tireRim = (r.tireRims && r.tireRims[leftIdx]) ? r.tireRims[leftIdx] : axle.rim || "-";
+        leftIdx += 1;
+        rightIdx += 1;
+      }
+      
+      axleRows.push([
+        String(axleNum+1),
+        tireSize,
+        axle.make || "-",
+        tireRim,
+        axle.et || "-"
+      ]);
+    });
+  }
+  y = drawTable(doc, y, ["Akseli","Koko","Merkki","Vanne","ET"], axleRows, [16, 40, 48, 30, 16], page);
+
+  y = drawSectionTitle(doc, "Rengaskartta", y, page);
+  y = ensureSpace(doc, y, 30, page);
+  y = drawTireDiagram(doc, r.config, r.values || [], page.left, y, { rightOffset:120, labelOffset:58, tireW:6, tireH:12, tireR:3 });
+  y += 6;
+
+  y = drawSectionTitle(doc, "Rengasmittaukset", y, page);
+  const rows = (r.positions || []).map((p,i)=>{
+    const v = r.values && r.values[i];
+    const w = r.wear && r.wear[i];
+    const size = r.tireSizes && r.tireSizes[i] ? r.tireSizes[i] : "-";
+    const maker = r.tireMakes && r.tireMakes[i] ? r.tireMakes[i] : "-";
+    let note = r.notes && r.notes[i] ? r.notes[i] : "";
+    if (!note) { if (v < 2) note = "Vaihda"; else if (v < 4) note = "Seurattava"; }
+    return [p, size, maker, formatMmValue(v), w != null ? String(w) : "-", note || "-"];
+  });
+  y = drawTable(doc, y, ["Sijainti","Koko","Merkki","Mitta (mm)","Kuluminen","Huomio"], rows, [50, 35, 35, 25, 25, 30], page);
+
+  if (options.photoMode === 'gallery') {
+    drawPhotoGallery(doc, y, r, page);
+  }
+}
+
 function generatePdf(index) {
   if (!window.HistoryManager) return alert('Historia ei saatavilla');
   if (!window.jspdf) return alert('jsPDF ei ladattu - lataa sivu palvelimelta tai lisää jspdf paikallisesti');
@@ -642,92 +1339,7 @@ function generatePdf(index) {
   if (!r) return;
 
   const doc = new jsPDF();
-
-  doc.setFontSize(16);
-  doc.text("Rengastarkastusraportti",20,20);
-
-  doc.setFontSize(11);
-  doc.text(`Rekisterinumero: ${r.plate}`,20,30);
-  doc.text(`Yritys: ${r.company||"-"}`,20,36);
-  doc.text(`Tyyppi: ${r.type||"-"}`,20,42);
-  doc.text(`Päiväys: ${r.date}`,20,48);
-
-  let y=60;
-  doc.setFontSize(12);
-  doc.text("Akselikonfiguraatio",20,y);
-  y+=6;
-
-  doc.setFontSize(10);
-  doc.text("Akseli",20,y);
-  doc.text("Koko",50,y);
-  doc.text("Merkki",90,y);
-  doc.text("Vanne",140,y);
-  doc.text("ET",170,y);
-  y+=4;
-  doc.line(20,y,190,y);
-  y+=4;
-
-  r.config.data.forEach((a,i)=>{
-    doc.text(String(i+1),20,y);
-    doc.text(a.size||"-",50,y);
-    doc.text(a.make||"-",90,y);
-    doc.text(a.rim||"-",140,y);
-    doc.text(a.et||"-",170,y);
-    y+=6;
-  });
-
-  y+=10;
-  doc.setFontSize(12);
-  doc.text("Rengasmittaukset",20,y);
-  y+=6;
-
-  doc.setFontSize(10);
-  doc.text("Sijainti",20,y);
-  doc.text("Mitta",90,y);
-  doc.text("Kuluminen",130,y);
-  doc.text("Huomio",160,y);
-  y+=4;
-  doc.line(20,y,190,y);
-  y+=6;
-
-  r.positions.forEach((p,i)=>{
-    const v = r.values[i];
-    const w = r.wear[i];
-    let note = r.notes && r.notes[i] ? r.notes[i] : "";
-    if (!note) {
-      if (v <= 5) {
-  note = "Vaihda";
-} else if (v <= 7) {
-  note = "Seurattava";
-} else {
-  note = "OK";
-}
-
-    }
-
-    doc.text(p,20,y);
-    doc.text(String(v),90,y);
-    doc.text(w!=null?String(w):"-",130,y);
-
-    // If photo exists, draw small thumbnail at right
-    const photo = r.photos && r.photos[i] ? r.photos[i] : null;
-    if (photo) {
-      try {
-        doc.addImage(photo, 'JPEG', 160, y-6, 30, 30);
-      } catch(e) {
-        // ignore image errors
-      }
-    } else {
-      doc.text(note||"-",160,y);
-    }
-
-    y+=36;
-    if (y>250) {
-      doc.addPage();
-      y=20;
-    }
-  });
-
+  renderReport(doc, r, { photoMode: 'gallery' });
   doc.save((r.plate||"raportti")+"_raportti.pdf");
 }
 
@@ -750,65 +1362,9 @@ function generateCompanyPdf(company) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    // Render one report per PDF page (newest-first). Use compact layout so
-    // each report fits a single page and avoid adding intermediate blank pages.
     list.forEach((r, idx) => {
       if (idx > 0) doc.addPage();
-
-      doc.setFontSize(14);
-      doc.text("Rengastarkastusraportti",20,20);
-
-      doc.setFontSize(10);
-      doc.text(`Rekisterinumero: ${r.plate}`,20,28);
-      doc.text(`Yritys: ${r.company||"-"}`,110,28);
-      doc.text(`Tyyppi: ${r.type||"-"}`,20,34);
-      doc.text(`Päiväys: ${r.date}`,110,34);
-
-      let y = 44;
-      doc.setFontSize(9);
-      // A compact axle table
-      doc.text("Akseli",20,y); doc.text("Koko",40,y); doc.text("Merkki",80,y); doc.text("Vanne",130,y); doc.text("ET",170,y);
-      y += 4;
-      (r.config && r.config.data || []).forEach((a,i)=>{
-        doc.text(String(i+1),20,y);
-        doc.text(a.size||"-",40,y);
-        doc.text(a.make||"-",80,y);
-        doc.text(a.rim||"-",130,y);
-        doc.text(a.et||"-",170,y);
-        y += 6;
-      });
-
-      y += 6;
-      doc.setFontSize(9);
-      doc.text("Sijainti",20,y); doc.text("Mitta",100,y); doc.text("Kuluminen",140,y); doc.text("Huomio",170,y);
-      y += 4;
-
-      // Compact measurements rows; stop writing extra lines if page would overflow
-      (r.positions || []).forEach((p,i)=>{
-        if (y > 270) return; // keep within printable area
-        const v = r.values && r.values[i];
-        const w = r.wear && r.wear[i];
-        let note = r.notes && r.notes[i] ? r.notes[i] : "";
-        if (!note) { if (v<2) note = "Vaihda"; else if (v<4) note = "Seurattava"; }
-
-        const photo = r.photos && r.photos[i] ? r.photos[i] : null;
-
-        doc.text(p,20,y);
-        doc.text(String(v),100,y);
-        doc.text(w!=null?String(w):"-",140,y);
-
-        if (photo) {
-          try {
-            const m = (photo.match(/^data:image\/(\w+);base64,/)||[])[1] || 'jpeg';
-            const fmt = (m.toUpperCase()==='JPG'?'JPEG':m.toUpperCase());
-            doc.addImage(photo, fmt, 150, y-4, 40, 30);
-          } catch(e) {}
-          y += 36;
-        } else {
-          doc.text(note||"-",170,y);
-          y += 6;
-        }
-      });
+      renderReport(doc, r, { photoMode: 'gallery' });
     });
 
     doc.save((company||'yritys')+"_raportit.pdf");
@@ -817,21 +1373,25 @@ function generateCompanyPdf(company) {
 
   // Fallback: open printable HTML with page-breaks and trigger print (user can Save as PDF)
   let html = '<!doctype html><html><head><meta charset="utf-8"><title>Raportit '+(company||'')+'</title>'+
-    '<style>body{font-family:Arial,Helvetica,sans-serif;font-size:12px;padding:12px} .page{page-break-after:always;margin-bottom:12px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ccc;padding:6px;text-align:left}</style></head><body>';
+    '<style>body{font-family:Arial,Helvetica,sans-serif;font-size:12px;padding:12px} .page{page-break-after:always;margin-bottom:12px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ccc;padding:6px;text-align:left} .diagram{display:flex;flex-direction:column;gap:6px;margin:6px 0 12px} .diagram-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px} .diagram-side{display:flex;gap:6px;justify-content:flex-start} .diagram-side.right{justify-content:flex-end} .diagram-tire{width:20px;height:36px;border:1px solid #222;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;background:linear-gradient(180deg,#3a3a3a,#111)} .diagram-label{font-size:10px;color:#333}</style></head><body>';
 
   list.forEach(r=>{
     html += `<div class="page"><h2>Rek ${r.plate} — ${r.date}</h2><p>Yritys: ${r.company||'-'}<br/>Tyyppi: ${r.type||'-'}</p>`;
     html += '<h3>Akselikonfiguraatio</h3><table><tr><th>Akseli</th><th>Koko</th><th>Merkki</th><th>Vanne</th><th>ET</th></tr>';
     (r.config && r.config.data || []).forEach((a,i)=>{ html += `<tr><td>${i+1}</td><td>${a.size||'-'}</td><td>${a.make||'-'}</td><td>${a.rim||'-'}</td><td>${a.et||'-'}</td></tr>`; });
     html += '</table>';
-    html += '<h3>Mittaukset</h3><table><tr><th>Sijainti</th><th>Mitta</th><th>Kuluminen</th><th>Huomio</th><th>Kuva</th></tr>';
+    html += '<h3>Rengaskartta</h3>';
+    html += buildDiagramHtml(r.config, r.values || []);
+    html += '<h3>Mittaukset</h3><table><tr><th>Sijainti</th><th>Koko</th><th>Merkki</th><th>Mitta</th><th>Kuluminen</th><th>Huomio</th><th>Kuva</th></tr>';
     (r.positions || []).forEach((p,i)=>{
       const v = r.values && r.values[i];
       const w = r.wear && r.wear[i];
+      const size = r.tireSizes && r.tireSizes[i] ? r.tireSizes[i] : "-";
+      const maker = r.tireMakes && r.tireMakes[i] ? r.tireMakes[i] : "-";
       let note = r.notes && r.notes[i] ? r.notes[i] : "";
       if (!note) { if (v<2) note = 'Vaihda'; else if (v<4) note = 'Seurattava'; }
       const photo = r.photos && r.photos[i] ? r.photos[i] : null;
-      html += `<tr><td>${p}</td><td>${v}</td><td>${w!=null?w:'-'}</td><td>${note||'-'}</td><td>${photo?`<img src="${photo}" style="max-width:160px;max-height:90px">`:'-'}</td></tr>`;
+      html += `<tr><td>${p}</td><td>${size}</td><td>${maker}</td><td>${v}</td><td>${w!=null?w:'-'}</td><td>${note||'-'}</td><td>${photo?`<img src="${photo}" style="max-width:160px;max-height:90px">`:'-'}</td></tr>`;
     });
     html += '</table></div>';
   });
@@ -861,57 +1421,7 @@ function generateVehiclePdf(plate) {
     list.forEach((r, idx) => {
       if (idx > 0) doc.addPage();
 
-      doc.setFontSize(14);
-      doc.text("Rengastarkastusraportti",20,20);
-      doc.setFontSize(10);
-      doc.text(`Rekisterinumero: ${r.plate}`,20,28);
-      doc.text(`Yritys: ${r.company||"-"}`,110,28);
-      doc.text(`Tyyppi: ${r.type||"-"}`,20,34);
-      doc.text(`Päiväys: ${r.date}`,110,34);
-
-      let y = 44;
-      doc.setFontSize(9);
-      doc.text("Akseli",20,y); doc.text("Koko",40,y); doc.text("Merkki",80,y); doc.text("Vanne",130,y); doc.text("ET",170,y);
-      y += 4;
-      (r.config && r.config.data || []).forEach((a,i)=>{
-        doc.text(String(i+1),20,y);
-        doc.text(a.size||"-",40,y);
-        doc.text(a.make||"-",80,y);
-        doc.text(a.rim||"-",130,y);
-        doc.text(a.et||"-",170,y);
-        y += 6;
-      });
-
-      y += 6;
-      doc.setFontSize(9);
-      doc.text("Sijainti",20,y); doc.text("Mitta",100,y); doc.text("Kuluminen",140,y); doc.text("Huomio",170,y);
-      y += 4;
-
-      (r.positions || []).forEach((p,i)=>{
-        if (y > 270) return;
-        const v = r.values && r.values[i];
-        const w = r.wear && r.wear[i];
-        let note = r.notes && r.notes[i] ? r.notes[i] : "";
-        if (!note) { if (v<2) note = "Vaihda"; else if (v<4) note = "Seurattava"; }
-
-        const photo = r.photos && r.photos[i] ? r.photos[i] : null;
-
-        doc.text(p,20,y);
-        doc.text(String(v),100,y);
-        doc.text(w!=null?String(w):"-",140,y);
-
-        if (photo) {
-          try {
-            const m = (photo.match(/^data:image\/(\w+);base64,/)||[])[1] || 'jpeg';
-            const fmt = (m.toUpperCase()==='JPG'?'JPEG':m.toUpperCase());
-            doc.addImage(photo, fmt, 150, y-4, 40, 30);
-          } catch(e) {}
-          y += 36;
-        } else {
-          doc.text(note||"-",170,y);
-          y += 6;
-        }
-      });
+      renderReport(doc, r, { photoMode: 'gallery' });
     });
 
     doc.save((plate||'ajoneuvo')+"_raportit.pdf");
@@ -920,20 +1430,24 @@ function generateVehiclePdf(plate) {
 
   // Fallback printable HTML
   let html = '<!doctype html><html><head><meta charset="utf-8"><title>Raportit '+(plate||'')+'</title>'+
-    '<style>body{font-family:Arial,Helvetica,sans-serif;font-size:12px;padding:12px} .page{page-break-after:always;margin-bottom:12px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ccc;padding:6px;text-align:left}</style></head><body>';
+    '<style>body{font-family:Arial,Helvetica,sans-serif;font-size:12px;padding:12px} .page{page-break-after:always;margin-bottom:12px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ccc;padding:6px;text-align:left} .diagram{display:flex;flex-direction:column;gap:6px;margin:6px 0 12px} .diagram-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px} .diagram-side{display:flex;gap:6px;justify-content:flex-start} .diagram-side.right{justify-content:flex-end} .diagram-tire{width:20px;height:36px;border:1px solid #222;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;background:linear-gradient(180deg,#3a3a3a,#111)} .diagram-label{font-size:10px;color:#333}</style></head><body>';
 
   list.forEach(r=>{
     html += `<div class="page"><h2>Rek ${r.plate} — ${r.date}</h2><p>Yritys: ${r.company||'-'}<br/>Tyyppi: ${r.type||'-'}</p>`;
     html += '<h3>Akselikonfiguraatio</h3><table><tr><th>Akseli</th><th>Koko</th><th>Merkki</th><th>Vanne</th><th>ET</th></tr>';
     (r.config && r.config.data || []).forEach((a,i)=>{ html += `<tr><td>${i+1}</td><td>${a.size||'-'}</td><td>${a.make||'-'}</td><td>${a.rim||'-'}</td><td>${a.et||'-'}</td></tr>`; });
     html += '</table>';
-    html += '<h3>Mittaukset</h3><table><tr><th>Sijainti</th><th>Mitta</th><th>Kuluminen</th><th>Huomio</th></tr>';
+    html += '<h3>Rengaskartta</h3>';
+    html += buildDiagramHtml(r.config, r.values || []);
+    html += '<h3>Mittaukset</h3><table><tr><th>Sijainti</th><th>Koko</th><th>Merkki</th><th>Mitta</th><th>Kuluminen</th><th>Huomio</th></tr>';
     (r.positions || []).forEach((p,i)=>{
       const v = r.values && r.values[i];
       const w = r.wear && r.wear[i];
+      const size = r.tireSizes && r.tireSizes[i] ? r.tireSizes[i] : "-";
+      const maker = r.tireMakes && r.tireMakes[i] ? r.tireMakes[i] : "-";
       let note = r.notes && r.notes[i] ? r.notes[i] : "";
       if (!note) { if (v<2) note = 'Vaihda'; else if (v<4) note = 'Seurattava'; }
-      html += `<tr><td>${p}</td><td>${v}</td><td>${w!=null?w:'-'}</td><td>${note||'-'}</td></tr>`;
+      html += `<tr><td>${p}</td><td>${size}</td><td>${maker}</td><td>${v}</td><td>${w!=null?w:'-'}</td><td>${note||'-'}</td></tr>`;
     });
     html += '</table></div>';
   });
@@ -1001,6 +1515,25 @@ setupAutocomplete(
   ()=>{}
 );
 
+const makeInput = document.getElementById('make');
+const makeSuggestions = document.getElementById('makeSuggestions');
+const modelInput = document.getElementById('model');
+const modelSuggestions = document.getElementById('modelSuggestions');
+
+setupAutocomplete(
+  makeInput,
+  makeSuggestions,
+  ()=>loadList(StorageKeys.makes()),
+  ()=>{}
+);
+
+setupAutocomplete(
+  modelInput,
+  modelSuggestions,
+  ()=>loadList(StorageKeys.models()),
+  ()=>{}
+);
+
 // Build axle chips
 [2,3,4,5].forEach(n=>{
   const chip = document.createElement('div');
@@ -1011,7 +1544,7 @@ setupAutocomplete(
   axleSelector.appendChild(chip);
 });
 
-// Open config
+// Open config - show vehicle type preset selector for axle configuration
 document.getElementById("btnOpenConfig").onclick = ()=>{
   const plate = plateInput.value.trim().toUpperCase();
   if (!plate) return alert("Syötä rekisterinumero");
@@ -1020,13 +1553,15 @@ document.getElementById("btnOpenConfig").onclick = ()=>{
   const map = loadMap(StorageKeys.plateCompanyMap());
   if (map[plate]) companyInput.value = map[plate];
 
-  const cfg = ConfigManager.load(plate) || { axles:2, data:[] };
-  currentConfig = cfg;
+  const makemodelmap = loadMap(StorageKeys.plateMakeModelMap());
+  if (makemodelmap[plate]) {
+    makeInput.value = makemodelmap[plate].make || '';
+    modelInput.value = makemodelmap[plate].model || '';
+  }
 
-  axleSelector.querySelectorAll(".chip").forEach(c=>{ c.classList.toggle("active", Number(c.dataset.axles)===cfg.axles); });
-
-  buildAxleUI(configAxles, cfg.axles, cfg.data, StorageKeys, formatTyreSize);
-  showView('view-config');
+  const vehicleTypeEl = document.querySelector('#vehicleType input[type="radio"]:checked');
+  const vehicleType = vehicleTypeEl ? vehicleTypeEl.value : 'Auto';
+  openAxleConfigModal(vehicleType);
 };
 
 // Show view helper
@@ -1071,6 +1606,131 @@ document.getElementById('btnSaveConfig').onclick = ()=>{
   showView('view-home');
 };
 
+// Preset modal functions
+const presetModal = document.getElementById('presetModal');
+const presetTypes = document.getElementById('presetTypes');
+const axleConfigModal = document.getElementById('axleConfigModal');
+const axleConfigs = document.getElementById('axleConfigs');
+let selectedPresetType = null;
+let selectedVehicleForConfig = null;
+
+function initPresetModal() {
+  presetTypes.innerHTML = '';
+  Object.keys(VEHICLE_PRESETS).forEach(type => {
+    const cfgList = VEHICLE_PRESETS[type];
+    const firstCfg = cfgList[0];
+    const card = document.createElement('div');
+    card.className = 'preset-type-card';
+    const icon = type === 'Kuorma-auto' ? '🚛' : (type === 'Perävaunu' ? '📦' : '🚗');
+    const axleCount = firstCfg.data.filter(a=>a.type==='single').length + ' yks. + ' + firstCfg.data.filter(a=>a.type==='dual').length + ' pari';
+    card.innerHTML = `
+      <div class="preset-type-icon">${icon}</div>
+      <div class="preset-type-name">${type}</div>
+      <div class="preset-type-info">${firstCfg.axles} akselia<br>${axleCount}</div>
+    `;
+    card.onclick = ()=>{
+      selectedPresetType = type;
+      presetTypes.querySelectorAll('.preset-type-card').forEach(c=>c.classList.remove('selected'));
+      card.classList.add('selected');
+      setTimeout(()=>startInspectionWithPreset(type), 200);
+    };
+    presetTypes.appendChild(card);
+  });
+}
+
+function initAxleConfigModal(vehicleType) {
+  axleConfigs.innerHTML = '';
+  const cfgList = VEHICLE_PRESETS[vehicleType];
+  if (!cfgList) return;
+  cfgList.forEach((cfg, idx) => {
+    const card = document.createElement('div');
+    card.className = 'preset-type-card';
+    card.innerHTML = `
+      <div class="preset-type-name" style="font-size:1.1rem;">${cfg.name}</div>
+    `;
+    card.onclick = ()=>{
+      currentConfig = { axles: cfg.axles, data: JSON.parse(JSON.stringify(cfg.data)) };
+      closeAxleConfigModal();
+      const plate = plateInput.value.trim().toUpperCase();
+      ConfigManager.save(plate, currentConfig);
+      alert('Konfiguraatio tallennettu');
+      showView('view-home');
+    };
+    axleConfigs.appendChild(card);
+  });
+}
+
+function openAxleConfigModal(vehicleType) {
+  selectedVehicleForConfig = vehicleType;
+  initAxleConfigModal(vehicleType);
+  axleConfigModal.classList.add('open');
+  axleConfigModal.style.display = 'flex';
+}
+
+function closeAxleConfigModal() {
+  axleConfigModal.classList.remove('open');
+  axleConfigModal.style.display = 'none';
+  selectedVehicleForConfig = null;
+}
+
+function openPresetModal() {
+  initPresetModal();
+  presetModal.classList.add('open');
+  presetModal.style.display = 'flex';
+}
+
+function closePresetModal() {
+  presetModal.classList.remove('open');
+  presetModal.style.display = 'none';
+  selectedPresetType = null;
+}
+
+function startInspectionWithPreset(vehicleType) {
+  const plate = plateInput.value.trim().toUpperCase();
+  if (!plate) { closePresetModal(); return alert('Syötä rekisterinumero'); }
+  
+  closePresetModal();
+  plateInput.value = plate;
+
+  const map = loadMap(StorageKeys.plateCompanyMap());
+  if (map[plate]) companyInput.value = map[plate];
+
+  // Load first config from presets
+  const presetList = VEHICLE_PRESETS[vehicleType];
+  if (!presetList || presetList.length === 0) return alert('Konfiguraatiota ei löydy');
+  const presetCfg = presetList[0];
+  
+  currentConfig = { axles: presetCfg.axles, data: JSON.parse(JSON.stringify(presetCfg.data)) };
+  currentPositions = buildPositions(currentConfig);
+
+  const last = HistoryManager.lastForPlate(plate);
+  const prevValues = last?last.values:null;
+  const prevNotes = last?last.notes:null;
+  const prevPhotos = last?last.photos:null;
+  const prevSizes = last?last.tireSizes:null;
+  const prevMakes = last?last.tireMakes:null;
+  const prevRims = last?last.tireRims:null;
+
+  // Set vehicle type
+  const typeInputs = document.querySelectorAll('#vehicleType input[type="radio"]');
+  const plateTypeMap = loadMap(StorageKeys.plateTypeMap());
+  const lastWithType = [...HistoryManager.load()].reverse().find(r => r.plate === plate && r.type) || null;
+  
+  if (plateTypeMap[plate]) {
+    typeInputs.forEach(b=>{ b.checked = (b.value === plateTypeMap[plate]); });
+  } else if (lastWithType && lastWithType.type) {
+    typeInputs.forEach(b=>{ b.checked = (b.value === lastWithType.type); });
+  } else {
+    typeInputs.forEach(b=>{ b.checked = (b.value === vehicleType); });
+  }
+  
+  const checkedNow = document.querySelector('#vehicleType input[type="radio"]:checked');
+  if (checkedNow) window.__selectedVehicleType = checkedNow.value;
+
+  buildMeasurementUI(currentPositions, currentConfig, measureList, prevValues, prevNotes, prevPhotos, prevSizes, prevRims, prevMakes);
+  showView('view-measure');
+}
+
 // Start inspection
 document.getElementById('btnStartInspection').onclick = ()=>{
   const plate = plateInput.value.trim().toUpperCase();
@@ -1080,8 +1740,14 @@ document.getElementById('btnStartInspection').onclick = ()=>{
   const map = loadMap(StorageKeys.plateCompanyMap());
   if (map[plate]) companyInput.value = map[plate];
 
+  const makemodelmap = loadMap(StorageKeys.plateMakeModelMap());
+  if (makemodelmap[plate]) {
+    makeInput.value = makemodelmap[plate].make || '';
+    modelInput.value = makemodelmap[plate].model || '';
+  }
+
   const cfg = ConfigManager.load(plate);
-  if (!cfg) return alert('Tee konfiguraatio ensin');
+  if (!cfg) return alert('Tee akseli konfiguraatio ensin');
 
   currentConfig = cfg;
   currentPositions = buildPositions(cfg);
@@ -1090,34 +1756,39 @@ document.getElementById('btnStartInspection').onclick = ()=>{
   const prevValues = last?last.values:null;
   const prevNotes = last?last.notes:null;
   const prevPhotos = last?last.photos:null;
+  const prevSizes = last?last.tireSizes:null;
+  const prevMakes = last?last.tireMakes:null;
+  const prevRims = last?last.tireRims:null;
 
-  // Prefill vehicle type radio: prefer stored plate type, else fall back to last record
-  const plateTypeMap = loadMap(StorageKeys.plateTypeMap());
   const typeInputs = document.querySelectorAll('#vehicleType input[type="radio"]');
-  // Find the most recent history entry for this plate that actually has a non-empty type
+  const plateTypeMap = loadMap(StorageKeys.plateTypeMap());
   const lastWithType = [...HistoryManager.load()].reverse().find(r => r.plate === plate && r.type) || null;
-  console.log('StartInspection debug:', { plate, stored: plateTypeMap[plate], lastType: last && last.type, lastWithType: lastWithType && lastWithType.type, inputs: typeInputs.length });
+  
   if (plateTypeMap[plate]) {
     typeInputs.forEach(b=>{ b.checked = (b.value === plateTypeMap[plate]); });
   } else if (lastWithType && lastWithType.type) {
     typeInputs.forEach(b=>{ b.checked = (b.value === lastWithType.type); });
-  } else if (last && last.type) {
-    typeInputs.forEach(b=>{ b.checked = (b.value === last.type); });
   } else {
     typeInputs.forEach(b=>{ b.checked = false; });
   }
-  // record current selection in a global so saves/read can access it reliably
+  
   const checkedNow = document.querySelector('#vehicleType input[type="radio"]:checked');
   if (checkedNow) window.__selectedVehicleType = checkedNow.value;
 
-  buildMeasurementUI(currentPositions, measureList, prevValues, prevNotes, prevPhotos);
+  buildMeasurementUI(currentPositions, currentConfig, measureList, prevValues, prevNotes, prevPhotos, prevSizes, prevRims, prevMakes);
   showView('view-measure');
 };
+
+// Close modal on backdrop click
+presetModal.querySelector('.preset-modal-backdrop').onclick = closePresetModal;
+axleConfigModal.querySelector('.preset-modal-backdrop').onclick = closeAxleConfigModal;
 
 // Save inspection
 document.getElementById('btnSaveInspection').onclick = ()=>{
   const plate = plateInput.value.trim().toUpperCase();
   const company = companyInput.value.trim();
+  const make = makeInput.value.trim();
+  const model = modelInput.value.trim();
   const selTypeEl = document.querySelector('#vehicleType input[type="radio"]:checked');
   let type = selTypeEl ? selTypeEl.value : (window.__selectedVehicleType || '');
   console.log('SaveInspection debug BEFORE save:', { plate, type, inputs: document.querySelectorAll('#vehicleType input[type="radio"]').length, storedBefore: loadMap(StorageKeys.plateTypeMap())[plate] });
@@ -1127,14 +1798,14 @@ document.getElementById('btnSaveInspection').onclick = ()=>{
 
   plateInput.value = plate;
 
-  const sliders = measureList.querySelectorAll("input.tyre-slider");
-  const values = [...sliders].map(i=>parseFloat(i.value||0));
-
-  const noteInputs = measureList.querySelectorAll('.note-input');
-  const notes = [...noteInputs].map(t=>t.value.trim() || null);
-
-  const rows = measureList.querySelectorAll('.tyre-row');
-  const photos = [...rows].map(r=> r.dataset.photo || null);
+  const nodes = [...measureList.querySelectorAll('.tire-node')]
+    .sort((a,b)=>Number(a.dataset.index)-Number(b.dataset.index));
+  const values = nodes.map(n=>parseFloat(n.dataset.value || 0));
+  const notes = nodes.map(n=> (n.dataset.note || '').trim() || null);
+  const photos = nodes.map(n=> n.dataset.photo || null);
+  const tireSizes = nodes.map(n=> (n.dataset.size || '').trim() || null);
+  const tireMakes = nodes.map(n=> (n.dataset.make || '').trim() || null);
+  const tireRims = nodes.map(n=> (n.dataset.rim || '').trim() || null);
 
   const last = HistoryManager.lastForPlate(plate);
   const wear = values.map((v,i)=>{
@@ -1145,6 +1816,8 @@ document.getElementById('btnSaveInspection').onclick = ()=>{
   const record = {
     plate,
     company,
+    make,
+    model,
     type,
     date:new Date().toLocaleString(),
     values,
@@ -1152,7 +1825,10 @@ document.getElementById('btnSaveInspection').onclick = ()=>{
     config:currentConfig,
     positions:currentPositions,
     notes,
-    photos
+    photos,
+    tireSizes,
+    tireMakes,
+    tireRims
   };
 
   HistoryManager.add(record);
@@ -1165,8 +1841,21 @@ document.getElementById('btnSaveInspection').onclick = ()=>{
     if (!companies.includes(company)) { companies.push(company); saveList(StorageKeys.companies(), companies); }
   }
 
+  if (make) {
+    const makes = loadList(StorageKeys.makes());
+    if (!makes.includes(make)) { makes.push(make); saveList(StorageKeys.makes(), makes); }
+  }
+
+  if (model) {
+    const models = loadList(StorageKeys.models());
+    if (!models.includes(model)) { models.push(model); saveList(StorageKeys.models(), models); }
+  }
+
   const map = loadMap(StorageKeys.plateCompanyMap());
   if (company) { map[plate] = company; saveMap(StorageKeys.plateCompanyMap(), map); }
+
+  const makemodelmap = loadMap(StorageKeys.plateMakeModelMap());
+  if (make || model) { makemodelmap[plate] = { make, model }; saveMap(StorageKeys.plateMakeModelMap(), makemodelmap); }
 
   // Remember vehicle type per plate
   const plateTypeMap = loadMap(StorageKeys.plateTypeMap());
@@ -1207,8 +1896,3 @@ window.__app = { renderHistory };
 })();</script>
 </body>
 </html>
-
-
-
-
-
