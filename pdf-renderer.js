@@ -284,6 +284,7 @@ function renderReport(doc, r, options={}) {
   y = drawKeyValues(doc, y, [
     { label: "Rek", value: r.plate || "-" },
     { label: "Yritys", value: r.company || "-" },
+    { label: "Ajokilometrit", value: (r.ajokilometrit != null && String(r.ajokilometrit).trim() !== '') ? `${r.ajokilometrit} km` : "-" },
     { label: "Merkki", value: r.make || "-" },
     { label: "Malli", value: r.model || "-" },
     { label: "Tyyppi", value: r.type || "-" },
@@ -338,12 +339,41 @@ function renderReport(doc, r, options={}) {
     const w = r.wear && r.wear[i];
     const size = r.tireSizes && r.tireSizes[i] ? r.tireSizes[i] : "-";
     const maker = r.tireMakes && r.tireMakes[i] ? r.tireMakes[i] : "-";
-    const et = r.tireEts && r.tireEts[i] ? r.tireEts[i] : "-";
     let note = r.notes && r.notes[i] ? r.notes[i] : "";
     if (!note) { if (v < 2) note = "Vaihda"; else if (v < 4) note = "Seurattava"; }
-    return [p, size, maker, et, formatMmValue(v), w != null ? String(w) : "-", note || "-"];
+    return [p, size, maker, formatMmValue(v), w != null ? String(w) : "-", note || "-"];
   });
-  y = drawTable(doc, y, ["Sijainti","Koko","Merkki","ET","Mitta (mm)","Kuluminen","Huomio"], rows, [42, 32, 28, 14, 18, 20, 26], page);
+  y = drawTable(doc, y, ["Sijainti","Koko","Merkki","Mitta (mm)","Kuluminen","Huomio"], rows, [48, 36, 34, 20, 20, 32], page);
+
+  y = drawSectionTitle(doc, "Positiokohtaiset työt", y, page);
+  const workRows = (r.positions || []).map((p,i)=>{
+    const works = r.tireWorks && r.tireWorks[i] ? r.tireWorks[i] : "-";
+    return [p, works];
+  }).filter(row=> row[1] && row[1] !== "-");
+  if (!workRows.length) workRows.push(["-", "-"]);
+  y = drawTable(doc, y, ["Sijainti","Työt"], workRows, [50, 120], page);
+
+  y = drawSectionTitle(doc, "Rengasvaihdot", y, page);
+  const changeRows = (r.positions || []).map((p,i)=>{
+    const oldMm = r.tireOldValues && r.tireOldValues[i] != null ? formatMmValue(r.tireOldValues[i]) : "-";
+    let note = r.notes && r.notes[i] ? r.notes[i] : "";
+    if (!note) {
+      const v = r.values && r.values[i];
+      if (v < 2) note = "Vaihda";
+      else if (v < 4) note = "Seurattava";
+    }
+    const oldMake = r.tireOldMakes && r.tireOldMakes[i] ? r.tireOldMakes[i] : "-";
+    const oldTire = r.tireOldRunkos && r.tireOldRunkos[i] ? r.tireOldRunkos[i] : "-";
+    const newMake = r.tireMakes && r.tireMakes[i] ? r.tireMakes[i] : "-";
+    const newTire = r.tireRunkos && r.tireRunkos[i] ? r.tireRunkos[i] : ((r.tireNewRunkos && r.tireNewRunkos[i]) ? r.tireNewRunkos[i] : "-");
+    return [p, oldMm, note || "-", oldMake, oldTire, newMake, newTire];
+  }).filter((row, i)=>{
+    const oldTire = row[4];
+    const flagged = !!(r.tireChanges && r.tireChanges[i]);
+    return flagged || oldTire !== "-";
+  });
+  if (!changeRows.length) changeRows.push(["-", "-", "-", "-", "-", "-", "-"]);
+  y = drawTable(doc, y, ["Sijainti","Vanha mm","Huomio","Vanha merkki","Vanha runko","Uusi merkki","Uusi runko"], changeRows, [24, 16, 22, 28, 28, 28, 24], page);
 
   if (options.photoMode === 'gallery') {
     drawPhotoGallery(doc, y, r, page);
@@ -360,12 +390,19 @@ function generatePdf(index) {
 
   const doc = new jsPDF();
   renderReport(doc, r, { photoMode: 'gallery' });
-  doc.save((r.plate||"raportti")+"_raportti.pdf");
+  const modeLabel = (r.mode === 'work') ? 'tyo' : 'mittaus';
+  doc.save((r.plate||"raportti")+"_"+modeLabel+"_raportti.pdf");
 }
 
-function generateCompanyPdf(company) {
+function generateCompanyPdf(company, mode = 'all') {
   if (!window.HistoryManager) return alert('Historia ei saatavilla');
-  const raw = window.HistoryManager.load().filter(r => (r.company||"Ilman yritystä") === company);
+  const normalizedMode = mode || 'all';
+  const raw = window.HistoryManager.load().filter(r => {
+    if ((r.company||"Ilman yritystä") !== company) return false;
+    if (normalizedMode === 'all') return true;
+    const recMode = r.mode === 'work' ? 'work' : 'measurement';
+    return recMode === normalizedMode;
+  });
   // Keep newest-first but only the newest record per vehicle (plate)
   const reversed = raw.slice().reverse();
   const seen = new Set();
@@ -373,7 +410,10 @@ function generateCompanyPdf(company) {
   for (const r of reversed) {
     if (!seen.has(r.plate)) { seen.add(r.plate); list.push(r); }
   }
-  if (!list.length) return alert('Ei raportteja valitulle yritykselle');
+  if (!list.length) {
+    const label = normalizedMode === 'work' ? 'töitä' : (normalizedMode === 'measurement' ? 'mittauksia' : 'raportteja');
+    return alert(`Ei ${label} valitulle yritykselle`);
+  }
 
   // If real jsPDF is available, produce a single PDF with one vehicle per page
   if (window.jspdf && window.jspdf.jsPDF && typeof window.jspdf.jsPDF === 'function') {
@@ -385,33 +425,69 @@ function generateCompanyPdf(company) {
       renderReport(doc, r, { photoMode: 'gallery' });
     });
 
-    doc.save((company||'yritys')+"_raportit.pdf");
+    const suffix = normalizedMode === 'work' ? 'tyot' : (normalizedMode === 'measurement' ? 'mittaukset' : 'raportit');
+    doc.save((company||'yritys')+`_${suffix}.pdf`);
     return;
   }
 
   // Fallback: open printable HTML
-  let html = '<!doctype html><html><head><meta charset="utf-8"><title>Raportit '+(company||'')+'</title>'+
+  const modeTitle = normalizedMode === 'work' ? 'Työt' : (normalizedMode === 'measurement' ? 'Mittaukset' : 'Raportit');
+  let html = '<!doctype html><html><head><meta charset="utf-8"><title>'+modeTitle+' '+(company||'')+'</title>'+
     '<style>body{font-family:Arial,Helvetica,sans-serif;font-size:12px;padding:12px} .page{page-break-after:always;margin-bottom:12px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ccc;padding:6px;text-align:left} .diagram{display:flex;flex-direction:column;gap:6px;margin:6px 0 12px} .diagram-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px} .diagram-side{display:flex;gap:6px;justify-content:flex-start} .diagram-side.right{justify-content:flex-end} .diagram-tire{width:20px;height:36px;border:1px solid #222;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;background:linear-gradient(180deg,#3a3a3a,#111)} .diagram-label{font-size:10px;color:#333}</style></head><body>';
 
   list.forEach(r=>{
-    html += `<div class="page"><h2>Rek ${r.plate} — ${r.date}</h2><p>Yritys: ${r.company||'-'}<br/>Tyyppi: ${r.type||'-'}</p>`;
+    const km = (r.ajokilometrit != null && String(r.ajokilometrit).trim() !== '') ? `${r.ajokilometrit} km` : '-';
+    html += `<div class="page"><h2>Rek ${r.plate} — ${r.date}</h2><p>Yritys: ${r.company||'-'}<br/>Ajokilometrit: ${km}<br/>Tyyppi: ${r.type||'-'}</p>`;
     html += '<h3>Akselikonfiguraatio</h3><table><tr><th>Akseli</th><th>Koko</th><th>Vanne</th><th>ET</th></tr>';
     (r.config && r.config.data || []).forEach((a,i)=>{ html += `<tr><td>${i+1}</td><td>${a.size||'-'}</td><td>${a.rim||'-'}</td><td>${a.et||'-'}</td></tr>`; });
     html += '</table>';
     html += '<h3>Rengaskartta</h3>';
     html += buildDiagramHtml(r.config, r.values || []);
-    html += '<h3>Mittaukset</h3><table><tr><th>Sijainti</th><th>Koko</th><th>Merkki</th><th>ET</th><th>Mitta</th><th>Kuluminen</th><th>Huomio</th><th>Kuva</th></tr>';
+    html += '<h3>Mittaukset</h3><table><tr><th>Sijainti</th><th>Koko</th><th>Merkki</th><th>Mitta</th><th>Kuluminen</th><th>Huomio</th><th>Kuva</th></tr>';
     (r.positions || []).forEach((p,i)=>{
       const v = r.values && r.values[i];
       const w = r.wear && r.wear[i];
       const size = r.tireSizes && r.tireSizes[i] ? r.tireSizes[i] : "-";
       const maker = r.tireMakes && r.tireMakes[i] ? r.tireMakes[i] : "-";
-      const et = r.tireEts && r.tireEts[i] ? r.tireEts[i] : "-";
+      const newTire = r.tireRunkos && r.tireRunkos[i] ? r.tireRunkos[i] : ((r.tireNewRunkos && r.tireNewRunkos[i]) ? r.tireNewRunkos[i] : '-');
       let note = r.notes && r.notes[i] ? r.notes[i] : "";
       if (!note) { if (v<2) note = 'Vaihda'; else if (v<4) note = 'Seurattava'; }
       const photo = r.photos && r.photos[i] ? r.photos[i] : null;
-      html += `<tr><td>${p}</td><td>${size}</td><td>${maker}</td><td>${et}</td><td>${v}</td><td>${w!=null?w:'-'}</td><td>${note||'-'}</td><td>${photo?`<img src="${photo}" style="max-width:160px;max-height:90px">`:'-'}</td></tr>`;
+      html += `<tr><td>${p}</td><td>${size}</td><td>${maker}</td><td>${v}</td><td>${w!=null?w:'-'}</td><td>${note||'-'}</td><td>${photo?`<img src="${photo}" style="max-width:160px;max-height:90px">`:'-'}</td></tr>`;
     });
+    html += '</table>';
+
+    html += '<h3>Positiokohtaiset työt</h3><table><tr><th>Sijainti</th><th>Työt</th></tr>';
+    let hasWorks = false;
+    (r.positions || []).forEach((p,i)=>{
+      const works = r.tireWorks && r.tireWorks[i] ? r.tireWorks[i] : '';
+      if (!works) return;
+      hasWorks = true;
+      html += `<tr><td>${p}</td><td>${works}</td></tr>`;
+    });
+    if (!hasWorks) html += '<tr><td>-</td><td>-</td></tr>';
+    html += '</table>';
+
+    html += '<h3>Rengasvaihdot</h3><table><tr><th>Sijainti</th><th>Vanha mm</th><th>Huomio</th><th>Vanha merkki/malli</th><th>Vanha runkonumero</th><th>Uusi merkki/malli</th><th>Uusi runkonumero</th></tr>';
+    let hasChanges = false;
+    (r.positions || []).forEach((p,i)=>{
+      const oldMm = r.tireOldValues && r.tireOldValues[i] != null ? formatMmValue(r.tireOldValues[i]) : '-';
+      let note = r.notes && r.notes[i] ? r.notes[i] : "";
+      if (!note) {
+        const v = r.values && r.values[i];
+        if (v < 2) note = 'Vaihda';
+        else if (v < 4) note = 'Seurattava';
+      }
+      const oldMake = r.tireOldMakes && r.tireOldMakes[i] ? r.tireOldMakes[i] : '-';
+      const oldTire = r.tireOldRunkos && r.tireOldRunkos[i] ? r.tireOldRunkos[i] : '-';
+      const newMake = r.tireMakes && r.tireMakes[i] ? r.tireMakes[i] : '-';
+      const newTire = r.tireRunkos && r.tireRunkos[i] ? r.tireRunkos[i] : ((r.tireNewRunkos && r.tireNewRunkos[i]) ? r.tireNewRunkos[i] : '-');
+      const flagged = !!(r.tireChanges && r.tireChanges[i]);
+      if (!(flagged || oldTire !== '-')) return;
+      hasChanges = true;
+      html += `<tr><td>${p}</td><td>${oldMm}</td><td>${note||'-'}</td><td>${oldMake}</td><td>${oldTire}</td><td>${newMake}</td><td>${newTire}</td></tr>`;
+    });
+    if (!hasChanges) html += '<tr><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>';
     html += '</table></div>';
   });
   html += '</body></html>';
@@ -420,10 +496,19 @@ function generateCompanyPdf(company) {
   window.open(url);
 }
 
-function generateVehiclePdf(plate) {
+function generateVehiclePdf(plate, mode = 'all') {
   if (!window.HistoryManager) return alert('Historia ei saatavilla');
-  const raw = window.HistoryManager.load().filter(r => r.plate === plate);
-  if (!raw.length) return alert('Ei raportteja valitulle ajoneuvolle');
+  const normalizedMode = mode || 'all';
+  const raw = window.HistoryManager.load().filter(r => {
+    if (r.plate !== plate) return false;
+    if (normalizedMode === 'all') return true;
+    const recMode = r.mode === 'work' ? 'work' : 'measurement';
+    return recMode === normalizedMode;
+  });
+  if (!raw.length) {
+    const label = normalizedMode === 'work' ? 'töitä' : (normalizedMode === 'measurement' ? 'mittauksia' : 'raportteja');
+    return alert(`Ei ${label} valitulle ajoneuvolle`);
+  }
 
   // If real jsPDF is available, produce a single PDF with one record per page
   if (window.jspdf && window.jspdf.jsPDF && typeof window.jspdf.jsPDF === 'function') {
@@ -435,33 +520,69 @@ function generateVehiclePdf(plate) {
       renderReport(doc, r, { photoMode: 'gallery' });
     });
 
-    doc.save((plate||'ajoneuvo')+"_raportit.pdf");
+    const suffix = normalizedMode === 'work' ? 'tyot' : (normalizedMode === 'measurement' ? 'mittaukset' : 'raportit');
+    doc.save((plate||'ajoneuvo')+`_${suffix}.pdf`);
     return;
   }
 
   // Fallback: open printable HTML
-  let html = '<!doctype html><html><head><meta charset="utf-8"><title>Raportit '+plate+'</title>'+
+  const modeTitle = normalizedMode === 'work' ? 'Työt' : (normalizedMode === 'measurement' ? 'Mittaukset' : 'Raportit');
+  let html = '<!doctype html><html><head><meta charset="utf-8"><title>'+modeTitle+' '+plate+'</title>'+
     '<style>body{font-family:Arial,Helvetica,sans-serif;font-size:12px;padding:12px} .page{page-break-after:always;margin-bottom:12px} table{border-collapse:collapse;width:100%} th,td{border:1px solid #ccc;padding:6px;text-align:left} .diagram{display:flex;flex-direction:column;gap:6px;margin:6px 0 12px} .diagram-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px} .diagram-side{display:flex;gap:6px;justify-content:flex-start} .diagram-side.right{justify-content:flex-end} .diagram-tire{width:20px;height:36px;border:1px solid #222;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;background:linear-gradient(180deg,#3a3a3a,#111)} .diagram-label{font-size:10px;color:#333}</style></head><body>';
 
   raw.forEach(r=>{
-    html += `<div class="page"><h2>Rek ${r.plate} — ${r.date}</h2><p>Yritys: ${r.company||'-'}<br/>Tyyppi: ${r.type||'-'}</p>`;
+    const km = (r.ajokilometrit != null && String(r.ajokilometrit).trim() !== '') ? `${r.ajokilometrit} km` : '-';
+    html += `<div class="page"><h2>Rek ${r.plate} — ${r.date}</h2><p>Yritys: ${r.company||'-'}<br/>Ajokilometrit: ${km}<br/>Tyyppi: ${r.type||'-'}</p>`;
     html += '<h3>Akselikonfiguraatio</h3><table><tr><th>Akseli</th><th>Koko</th><th>Vanne</th><th>ET</th></tr>';
     (r.config && r.config.data || []).forEach((a,i)=>{ html += `<tr><td>${i+1}</td><td>${a.size||'-'}</td><td>${a.rim||'-'}</td><td>${a.et||'-'}</td></tr>`; });
     html += '</table>';
     html += '<h3>Rengaskartta</h3>';
     html += buildDiagramHtml(r.config, r.values || []);
-    html += '<h3>Mittaukset</h3><table><tr><th>Sijainti</th><th>Koko</th><th>Merkki</th><th>ET</th><th>Mitta</th><th>Kuluminen</th><th>Huomio</th><th>Kuva</th></tr>';
+    html += '<h3>Mittaukset</h3><table><tr><th>Sijainti</th><th>Koko</th><th>Merkki</th><th>Mitta</th><th>Kuluminen</th><th>Huomio</th><th>Kuva</th></tr>';
     (r.positions || []).forEach((p,i)=>{
       const v = r.values && r.values[i];
       const w = r.wear && r.wear[i];
       const size = r.tireSizes && r.tireSizes[i] ? r.tireSizes[i] : "-";
       const maker = r.tireMakes && r.tireMakes[i] ? r.tireMakes[i] : "-";
-      const et = r.tireEts && r.tireEts[i] ? r.tireEts[i] : "-";
+      const newTire = r.tireRunkos && r.tireRunkos[i] ? r.tireRunkos[i] : ((r.tireNewRunkos && r.tireNewRunkos[i]) ? r.tireNewRunkos[i] : '-');
       let note = r.notes && r.notes[i] ? r.notes[i] : "";
       if (!note) { if (v<2) note = 'Vaihda'; else if (v<4) note = 'Seurattava'; }
       const photo = r.photos && r.photos[i] ? r.photos[i] : null;
-      html += `<tr><td>${p}</td><td>${size}</td><td>${maker}</td><td>${et}</td><td>${v}</td><td>${w!=null?w:'-'}</td><td>${note||'-'}</td><td>${photo?`<img src="${photo}" style="max-width:160px;max-height:90px">`:'-'}</td></tr>`;
+      html += `<tr><td>${p}</td><td>${size}</td><td>${maker}</td><td>${v}</td><td>${w!=null?w:'-'}</td><td>${note||'-'}</td><td>${photo?`<img src="${photo}" style="max-width:160px;max-height:90px">`:'-'}</td></tr>`;
     });
+    html += '</table>';
+
+    html += '<h3>Positiokohtaiset työt</h3><table><tr><th>Sijainti</th><th>Työt</th></tr>';
+    let hasWorks = false;
+    (r.positions || []).forEach((p,i)=>{
+      const works = r.tireWorks && r.tireWorks[i] ? r.tireWorks[i] : '';
+      if (!works) return;
+      hasWorks = true;
+      html += `<tr><td>${p}</td><td>${works}</td></tr>`;
+    });
+    if (!hasWorks) html += '<tr><td>-</td><td>-</td></tr>';
+    html += '</table>';
+
+    html += '<h3>Rengasvaihdot</h3><table><tr><th>Sijainti</th><th>Vanha mm</th><th>Huomio</th><th>Vanha merkki/malli</th><th>Vanha runkonumero</th><th>Uusi merkki/malli</th><th>Uusi runkonumero</th></tr>';
+    let hasChanges = false;
+    (r.positions || []).forEach((p,i)=>{
+      const oldMm = r.tireOldValues && r.tireOldValues[i] != null ? formatMmValue(r.tireOldValues[i]) : '-';
+      let note = r.notes && r.notes[i] ? r.notes[i] : "";
+      if (!note) {
+        const v = r.values && r.values[i];
+        if (v < 2) note = 'Vaihda';
+        else if (v < 4) note = 'Seurattava';
+      }
+      const oldMake = r.tireOldMakes && r.tireOldMakes[i] ? r.tireOldMakes[i] : '-';
+      const oldTire = r.tireOldRunkos && r.tireOldRunkos[i] ? r.tireOldRunkos[i] : '-';
+      const newMake = r.tireMakes && r.tireMakes[i] ? r.tireMakes[i] : '-';
+      const newTire = r.tireRunkos && r.tireRunkos[i] ? r.tireRunkos[i] : ((r.tireNewRunkos && r.tireNewRunkos[i]) ? r.tireNewRunkos[i] : '-');
+      const flagged = !!(r.tireChanges && r.tireChanges[i]);
+      if (!(flagged || oldTire !== '-')) return;
+      hasChanges = true;
+      html += `<tr><td>${p}</td><td>${oldMm}</td><td>${note||'-'}</td><td>${oldMake}</td><td>${oldTire}</td><td>${newMake}</td><td>${newTire}</td></tr>`;
+    });
+    if (!hasChanges) html += '<tr><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>';
     html += '</table></div>';
   });
   html += '</body></html>';

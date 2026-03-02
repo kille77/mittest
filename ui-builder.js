@@ -114,16 +114,18 @@ function buildPositions(config) {
   return [...left, ...right];
 }
 
-function buildMeasurementUI(positions, config, containerEl, previous=null, prevNotes=null, prevPhotos=null, prevSizes=null, prevRims=null, prevMakes=null, prevEts=null) {
+function buildMeasurementUI(positions, config, containerEl, previous=null, prevNotes=null, prevPhotos=null, prevSizes=null, prevRims=null, prevMakes=null, prevEts=null, prevChanges=null, prevOldRunkos=null, prevRunkos=null, prevOldMakes=null, prevOldValues=null, viewMode='measurement') {
   containerEl.innerHTML = "";
+  const isWorkMode = viewMode === 'work';
 
   const values = positions.map((_,i)=> previous && previous[i]!=null ? Number(previous[i]) : 10);
   const notes = positions.map((_,i)=> prevNotes && prevNotes[i] ? String(prevNotes[i]) : "");
   const photos = positions.map((_,i)=> prevPhotos && prevPhotos[i] ? String(prevPhotos[i]) : null);
+  const WORK_OPTIONS = ['Paikkaus', 'Tasapainotus', 'Venttiilin vaihto', 'Rengastyö'];
 
   const caption = document.createElement('div');
   caption.className = 'diagram-caption';
-  caption.textContent = 'Valitse rengas:';
+  caption.textContent = isWorkMode ? 'Valitse rengas ja lisää tehdyt työt:' : 'Valitse rengas:';
   containerEl.appendChild(caption);
 
   const diagram = document.createElement('div');
@@ -151,7 +153,7 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
         <label>Rengasmerkki malli</label>
         <input type="text" class="tire-make-input" placeholder="Esim. Michelin" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
         <label>Vannetyyppi</label>
-        <div class="rim-options" style="margin-bottom:8px;">
+        <div class="rim-options tire-rim-wrap" style="margin-bottom:8px;">
           <label class="rim-option">
             <input type="checkbox" class="tire-rim-check" value="Alumiini">
             Alumiini
@@ -161,12 +163,38 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
             Teräs
           </label>
         </div>
-        <label>ET</label>
+        <label class="tire-et-label">ET</label>
         <input type="text" class="tire-et-input" placeholder="Esim. 120" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
+        <label>Rengas runkonumero</label>
+        <input type="text" class="tire-runko-input" placeholder="Esim. NEW123" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
+        <label>Positio työt</label>
+        <div class="tire-work-options" style="margin-bottom:8px;">
+          ${WORK_OPTIONS.map(work=>`
+            <label class="rim-option tire-work-option">
+              <input type="checkbox" class="tire-work-check" value="${work}">
+              ${work}
+            </label>
+          `).join('')}
+        </div>
+        <div class="work-rim-change-wrap" style="display:none; margin-bottom:8px;">
+          <label>Uusi vanne</label>
+          <div class="rim-options" style="margin-top:6px;">
+            <label class="rim-option">
+              <input type="checkbox" class="work-rim-check" value="Alumiini">
+              Alumiini
+            </label>
+            <label class="rim-option">
+              <input type="checkbox" class="work-rim-check" value="Teräs">
+              Teräs
+            </label>
+          </div>
+        </div>
       </div>
       <div class="tire-modal-actions">
         <button class="btn-sm copy-size-all-btn" type="button">Kopioi koko kaikille</button>
         <button class="btn-sm copy-rim-all-btn" type="button">Kopioi vannetyyppi kaikille</button>
+        <button class="btn-sm change-rim-btn" type="button">Vaihda vanne</button>
+        <button class="btn-sm change-tire-btn" type="button">Vaihda rengas</button>
         <button class="btn-sm note-toggle" type="button">Huomio</button>
         <button class="btn-sm photo-btn" type="button">Kamera</button>
         <input type="file" accept="image/*" capture="environment" class="photo-input" style="display:none">
@@ -184,16 +212,95 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
   const tireSize = modal.querySelector('.tire-size-input');
   const tireMake = modal.querySelector('.tire-make-input');
   const tireRimChecks = [...modal.querySelectorAll('.tire-rim-check')];
+  const tireRimWrap = modal.querySelector('.tire-rim-wrap');
   const tireEt = modal.querySelector('.tire-et-input');
+  const tireEtLabel = modal.querySelector('.tire-et-label');
+  const tireRunko = modal.querySelector('.tire-runko-input');
   const copySizeAllBtn = modal.querySelector('.copy-size-all-btn');
   const copyRimAllBtn = modal.querySelector('.copy-rim-all-btn');
+  const changeRimBtn = modal.querySelector('.change-rim-btn');
+  const changeTireBtn = modal.querySelector('.change-tire-btn');
   const noteToggle = modal.querySelector('.note-toggle');
   const noteBox = modal.querySelector('.note-box');
   const noteInput = modal.querySelector('.note-input');
   const photoBtn = modal.querySelector('.photo-btn');
   const photoInput = modal.querySelector('.photo-input');
   const photoPreview = modal.querySelector('.photo-preview');
+  const tireWorkChecks = [...modal.querySelectorAll('.tire-work-check')];
+  const workRimChangeWrap = modal.querySelector('.work-rim-change-wrap');
+  const workRimChecks = [...modal.querySelectorAll('.work-rim-check')];
+  const changeTireWrapBtn = modal.querySelector('.change-tire-btn');
+  const workOptionsWrap = modal.querySelector('.tire-work-options');
+  const copySizeWrapBtn = modal.querySelector('.copy-size-all-btn');
+  const copyRimWrapBtn = modal.querySelector('.copy-rim-all-btn');
+  const changeRimWrapBtn = modal.querySelector('.change-rim-btn');
+  const photoWrapBtn = modal.querySelector('.photo-btn');
   let currentNode = null;
+
+  modalGrid.style.display = isWorkMode ? 'none' : 'grid';
+  if (changeTireWrapBtn) changeTireWrapBtn.style.display = isWorkMode ? '' : 'none';
+  if (changeRimWrapBtn) changeRimWrapBtn.style.display = isWorkMode ? '' : 'none';
+  if (copySizeWrapBtn) copySizeWrapBtn.style.display = isWorkMode ? 'none' : '';
+  if (copyRimWrapBtn) copyRimWrapBtn.style.display = isWorkMode ? 'none' : '';
+  if (photoWrapBtn) photoWrapBtn.style.display = isWorkMode ? 'none' : '';
+  if (tireRimWrap) {
+    const rimLabel = tireRimWrap.previousElementSibling;
+    if (rimLabel) rimLabel.style.display = isWorkMode ? 'none' : '';
+    tireRimWrap.style.display = isWorkMode ? 'none' : '';
+  }
+  if (tireEtLabel) tireEtLabel.style.display = isWorkMode ? 'none' : '';
+  if (tireEt) tireEt.style.display = isWorkMode ? 'none' : '';
+  if (workOptionsWrap) {
+    const label = workOptionsWrap.previousElementSibling;
+    if (label) label.style.display = isWorkMode ? '' : 'none';
+    workOptionsWrap.style.display = isWorkMode ? 'flex' : 'none';
+  }
+  if (workRimChangeWrap) workRimChangeWrap.style.display = 'none';
+
+  function parseWorkList(raw) {
+    return String(raw || '')
+      .split(/[|,]/)
+      .map(item=>item.trim())
+      .filter(Boolean);
+  }
+
+  function setSelectedWorks(list) {
+    const selected = new Set((list || []).map(v=>String(v).trim()));
+    tireWorkChecks.forEach(ch=>{ ch.checked = selected.has(ch.value); });
+  }
+
+  function getSelectedWorks() {
+    return tireWorkChecks.filter(ch=>ch.checked).map(ch=>ch.value);
+  }
+
+  function saveSelectedWorks() {
+    if (!currentNode) return;
+    currentNode.dataset.works = getSelectedWorks().join('|');
+    updateRimChangeButton(currentNode);
+    updateTireNode(currentNode);
+  }
+
+  function getWorksSet(node) {
+    return new Set(parseWorkList(node && node.dataset ? node.dataset.works : ''));
+  }
+
+  function updateRimChangeButton(node) {
+    const active = !!node && getWorksSet(node).has('Vanteen vaihto');
+    if (changeRimBtn) changeRimBtn.classList.toggle('change-rim-active', active);
+    if (workRimChangeWrap) {
+      workRimChangeWrap.style.display = (isWorkMode && active) ? 'block' : 'none';
+    }
+  }
+
+  function getSelectedWorkRim() {
+    const checked = workRimChecks.find(ch=>ch.checked);
+    return checked ? checked.value : '';
+  }
+
+  function setSelectedWorkRim(value) {
+    const v = String(value || '').trim();
+    workRimChecks.forEach(ch=>{ ch.checked = (ch.value === v); });
+  }
 
   setupTyreAutocomplete(tireMake, window.StorageKeys.tyreMakes(), null, (item)=>{
     if (!currentNode) return;
@@ -220,9 +327,18 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     const val = Number(node.dataset.value || 0);
     const note = node.dataset.note || "";
     const photo = node.dataset.photo || "";
+    const change = node.dataset.change === '1';
+    const works = parseWorkList(node.dataset.works || '');
     node.querySelector('.tire-value').textContent = formatMmValue(val);
     node.classList.toggle('has-note', !!note);
     node.classList.toggle('has-photo', !!photo);
+    node.classList.toggle('has-change', change);
+    node.classList.toggle('has-work', works.length > 0);
+  }
+
+  function updateChangeButton(node) {
+    const active = !!node && node.dataset.change === '1';
+    changeTireBtn.classList.toggle('change-tire-active', active);
   }
 
   function setActiveValue(val) {
@@ -250,6 +366,13 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     const tireE = node.dataset.et || "";
     tireEt.value = tireE;
 
+    const runko = node.dataset.runko || "";
+    tireRunko.value = runko;
+
+    const works = parseWorkList(node.dataset.works || '');
+    setSelectedWorks(works);
+    setSelectedWorkRim(node.dataset.workRim || '');
+
     const note = node.dataset.note || "";
     noteInput.value = note;
     noteToggle.classList.toggle('note-has-content', !!note);
@@ -265,6 +388,8 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     }
 
     setActiveValue(Number(node.dataset.value || 0));
+    updateRimChangeButton(node);
+    updateChangeButton(node);
     modal.classList.add('open');
   }
 
@@ -314,6 +439,65 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
       node.dataset.rim = val;
     });
   };
+
+  changeTireBtn.onclick = ()=>{
+    if (!currentNode) return;
+    const currentOldMake = (currentNode.dataset.oldMake || '').trim();
+    const currentOld = (currentNode.dataset.oldRunko || '').trim().toUpperCase();
+    const currentRunko = (currentNode.dataset.runko || '').trim().toUpperCase();
+    const currentMake = capitalizeWords(currentNode.dataset.make || '');
+    const currentOldValue = currentNode.dataset.oldValue;
+    const currentValue = Number(currentNode.dataset.value || 0);
+
+    currentNode.dataset.change = '1';
+
+    if (!currentOldValue || currentOldValue === '') {
+      currentNode.dataset.oldValue = String(currentValue);
+    }
+
+    if (!currentOldMake && currentMake) {
+      currentNode.dataset.oldMake = currentMake;
+    }
+
+    if (!currentOld && currentRunko) {
+      currentNode.dataset.oldRunko = currentRunko;
+    }
+
+    currentNode.dataset.make = '';
+    currentNode.dataset.runko = '';
+
+    tireMake.value = '';
+    tireRunko.value = '';
+
+    updateChangeButton(currentNode);
+    updateTireNode(currentNode);
+    tireRunko.focus();
+  };
+
+  changeRimBtn.onclick = ()=>{
+    if (!currentNode) return;
+    const works = getWorksSet(currentNode);
+    if (works.has('Vanteen vaihto')) {
+      works.delete('Vanteen vaihto');
+      currentNode.dataset.workRim = '';
+      setSelectedWorkRim('');
+    } else {
+      works.add('Vanteen vaihto');
+    }
+    currentNode.dataset.works = [...works].join('|');
+    updateRimChangeButton(currentNode);
+    updateTireNode(currentNode);
+  };
+
+  workRimChecks.forEach(ch=>{
+    ch.addEventListener('change', ()=>{
+      if (ch.checked) {
+        workRimChecks.forEach(other=>{ if (other !== ch) other.checked = false; });
+      }
+      if (!currentNode) return;
+      currentNode.dataset.workRim = getSelectedWorkRim();
+    });
+  });
 
   noteToggle.onclick = ()=>{
     noteBox.style.display = noteBox.style.display === 'none' ? 'block' : 'none';
@@ -369,6 +553,21 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     currentNode.dataset.et = val;
   });
 
+  tireRunko.addEventListener('input', ()=>{
+    if (!currentNode) return;
+    const val = tireRunko.value.trim().toUpperCase();
+    currentNode.dataset.runko = val;
+    if (val) {
+      currentNode.dataset.change = '1';
+      updateChangeButton(currentNode);
+      updateTireNode(currentNode);
+    }
+  });
+
+  tireWorkChecks.forEach(ch=>{
+    ch.addEventListener('change', saveSelectedWorks);
+  });
+
   photoBtn.onclick = ()=> photoInput.click();
   photoInput.onchange = (e)=>{
     const f = e.target.files && e.target.files[0];
@@ -396,6 +595,13 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     node.dataset.make = capitalizeWords((prevMakes && prevMakes[index]) ? prevMakes[index] : (axleConfig && axleConfig.make ? axleConfig.make : ''));
     node.dataset.rim = (prevRims && prevRims[index]) ? prevRims[index] : (axleConfig && axleConfig.rim ? axleConfig.rim : '');
     node.dataset.et = (prevEts && prevEts[index]) ? prevEts[index] : (axleConfig && axleConfig.et ? axleConfig.et : '');
+    node.dataset.change = (prevChanges && prevChanges[index]) ? '1' : '';
+    node.dataset.oldRunko = (prevOldRunkos && prevOldRunkos[index]) ? String(prevOldRunkos[index]).toUpperCase() : '';
+    node.dataset.runko = (prevRunkos && prevRunkos[index]) ? String(prevRunkos[index]).toUpperCase() : '';
+    node.dataset.works = '';
+    node.dataset.workRim = '';
+    node.dataset.oldMake = (prevOldMakes && prevOldMakes[index]) ? capitalizeWords(prevOldMakes[index]) : '';
+    node.dataset.oldValue = (prevOldValues && prevOldValues[index] != null) ? String(prevOldValues[index]) : '';
     node.innerHTML = `
       <span class="tire-label">${label || ''}</span>
       <span class="tire-value">${formatMmValue(node.dataset.value)}</span>
@@ -457,7 +663,11 @@ function renderHistory(containerEl, HistoryManagerRef) {
   Object.keys(map).forEach(company=>{
     const compCard = document.createElement('div');
     compCard.className = 'card';
-    compCard.innerHTML = `<h3>${company} <button class="btn-sm" data-download-company="${company}" style="margin-left:8px;">Lataa kaikki</button></h3>`;
+    compCard.innerHTML = `<h3>${company}
+      <button class="btn-sm" data-download-company="${company}" data-mode="all" style="margin-left:8px;">Lataa kaikki</button>
+      <button class="btn-sm" data-download-company="${company}" data-mode="measurement" style="margin-left:6px;">Lataa mittaukset</button>
+      <button class="btn-sm" data-download-company="${company}" data-mode="work" style="margin-left:6px;">Lataa työt</button>
+    </h3>`;
 
     Object.keys(map[company]).forEach(plate=>{
       const arr = map[company][plate];
@@ -496,12 +706,36 @@ function renderHistory(containerEl, HistoryManagerRef) {
       const downloadBtn = document.createElement('button');
       downloadBtn.className = 'btn-sm';
       downloadBtn.setAttribute('data-download-plate', plate);
-      downloadBtn.textContent = 'Lataa kaikki (ajoneuvo)';
+      downloadBtn.setAttribute('data-mode', 'all');
+      downloadBtn.textContent = 'Lataa kaikki';
       downloadBtn.style.marginLeft = '8px';
       downloadBtn.onclick = (e)=>e.stopPropagation();
+
+      const downloadMeasureBtn = document.createElement('button');
+      downloadMeasureBtn.className = 'btn-sm';
+      downloadMeasureBtn.setAttribute('data-download-plate', plate);
+      downloadMeasureBtn.setAttribute('data-mode', 'measurement');
+      downloadMeasureBtn.textContent = 'Lataa mittaukset';
+      downloadMeasureBtn.style.marginLeft = '6px';
+      downloadMeasureBtn.onclick = (e)=>e.stopPropagation();
+
+      const downloadWorkBtn = document.createElement('button');
+      downloadWorkBtn.className = 'btn-sm';
+      downloadWorkBtn.setAttribute('data-download-plate', plate);
+      downloadWorkBtn.setAttribute('data-mode', 'work');
+      downloadWorkBtn.textContent = 'Lataa työt';
+      downloadWorkBtn.style.marginLeft = '6px';
+      downloadWorkBtn.onclick = (e)=>e.stopPropagation();
       
       headerDiv.appendChild(leftPart);
-      headerDiv.appendChild(downloadBtn);
+      const rightPart = document.createElement('div');
+      rightPart.style.display = 'flex';
+      rightPart.style.flexWrap = 'wrap';
+      rightPart.style.justifyContent = 'flex-end';
+      rightPart.appendChild(downloadBtn);
+      rightPart.appendChild(downloadMeasureBtn);
+      rightPart.appendChild(downloadWorkBtn);
+      headerDiv.appendChild(rightPart);
       
       const reportsContainer = document.createElement('div');
       reportsContainer.className = 'plate-reports-container';
@@ -509,23 +743,58 @@ function renderHistory(containerEl, HistoryManagerRef) {
       reportsContainer.style.overflow = 'hidden';
       reportsContainer.style.transition = 'max-height 0.3s ease';
       reportsContainer.style.maxHeight = '1000px';
-      
-      arr.forEach(entry=>{
-        const r = entry.rec;
-        const i = entry.idx;
-        const item = document.createElement('div');
-        item.className = 'history-item';
-        item.innerHTML = `
-          <div>
-            <small>${r.date}</small>
-          </div>
-          <div class="history-actions">
-            <button class="btn-sm primary" data-pdf="${i}">PDF</button>
-            <button class="btn-sm danger" data-del="${i}">X</button>
-          </div>
-        `;
-        reportsContainer.appendChild(item);
-      });
+
+      const measurementEntries = arr.filter(entry => (entry.rec.mode || 'measurement') !== 'work');
+      const workEntries = arr.filter(entry => entry.rec.mode === 'work');
+
+      function appendSection(title, entries) {
+        const section = document.createElement('div');
+        section.style.marginBottom = '8px';
+
+        const sectionTitle = document.createElement('div');
+        sectionTitle.style.fontSize = '0.85rem';
+        sectionTitle.style.fontWeight = '600';
+        sectionTitle.style.color = '#475569';
+        sectionTitle.style.margin = '4px 0';
+        sectionTitle.textContent = `${title} (${entries.length})`;
+        section.appendChild(sectionTitle);
+
+        if (!entries.length) {
+          const empty = document.createElement('div');
+          empty.style.fontSize = '0.8rem';
+          empty.style.color = '#94a3b8';
+          empty.style.padding = '4px 0 8px';
+          empty.textContent = 'Ei rivejä';
+          section.appendChild(empty);
+          reportsContainer.appendChild(section);
+          return;
+        }
+
+        entries.forEach(entry=>{
+          const r = entry.rec;
+          const i = entry.idx;
+          const km = (r.ajokilometrit != null && String(r.ajokilometrit).trim() !== '')
+            ? ` • ${r.ajokilometrit} km`
+            : '';
+          const item = document.createElement('div');
+          item.className = 'history-item';
+          item.innerHTML = `
+            <div>
+              <small>${r.date}${km}</small>
+            </div>
+            <div class="history-actions">
+              <button class="btn-sm primary" data-pdf="${i}">PDF</button>
+              <button class="btn-sm danger" data-del="${i}">X</button>
+            </div>
+          `;
+          section.appendChild(item);
+        });
+
+        reportsContainer.appendChild(section);
+      }
+
+      appendSection('Mittaukset', measurementEntries);
+      appendSection('Työt', workEntries);
       
       headerDiv.onclick = ()=>{
         const isExpanded = toggle.dataset.expanded === 'true';
@@ -567,7 +836,8 @@ function renderHistory(containerEl, HistoryManagerRef) {
   containerEl.querySelectorAll('[data-download-company]').forEach(btn=>{
     btn.onclick = ()=>{
       const company = btn.dataset.downloadCompany;
-      if (window.generateCompanyPdf) window.generateCompanyPdf(company);
+      const mode = btn.dataset.mode || 'all';
+      if (window.generateCompanyPdf) window.generateCompanyPdf(company, mode);
       else alert('PDF-työkalu ei saatavilla');
     };
   });
@@ -575,7 +845,8 @@ function renderHistory(containerEl, HistoryManagerRef) {
   containerEl.querySelectorAll('[data-download-plate]').forEach(btn=>{
     btn.onclick = ()=>{
       const plate = btn.dataset.downloadPlate;
-      if (window.generateVehiclePdf) window.generateVehiclePdf(plate);
+      const mode = btn.dataset.mode || 'all';
+      if (window.generateVehiclePdf) window.generateVehiclePdf(plate, mode);
       else alert('PDF-työkalu ei saatavilla');
     };
   });
