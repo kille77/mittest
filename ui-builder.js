@@ -106,8 +106,8 @@ function buildPositions(config) {
     } else {
       left.push(`Akseli ${n} vasen ulompi`);
       left.push(`Akseli ${n} vasen sisempi`);
-      right.push(`Akseli ${n} oikea ulompi`);
       right.push(`Akseli ${n} oikea sisempi`);
+      right.push(`Akseli ${n} oikea ulompi`);
     }
   });
 
@@ -191,6 +191,7 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
         </div>
       </div>
       <div class="tire-modal-actions">
+        <button class="btn-sm copy-axle-btn" type="button">Kopioi koko akselille</button>
         <button class="btn-sm copy-size-all-btn" type="button">Kopioi koko kaikille</button>
         <button class="btn-sm copy-rim-all-btn" type="button">Kopioi vannetyyppi kaikille</button>
         <button class="btn-sm change-rim-btn" type="button">Vaihda vanne</button>
@@ -216,6 +217,7 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
   const tireEt = modal.querySelector('.tire-et-input');
   const tireEtLabel = modal.querySelector('.tire-et-label');
   const tireRunko = modal.querySelector('.tire-runko-input');
+  const copyAxleBtn = modal.querySelector('.copy-axle-btn');
   const copySizeAllBtn = modal.querySelector('.copy-size-all-btn');
   const copyRimAllBtn = modal.querySelector('.copy-rim-all-btn');
   const changeRimBtn = modal.querySelector('.change-rim-btn');
@@ -240,6 +242,7 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
   modalGrid.style.display = isWorkMode ? 'none' : 'grid';
   if (changeTireWrapBtn) changeTireWrapBtn.style.display = isWorkMode ? '' : 'none';
   if (changeRimWrapBtn) changeRimWrapBtn.style.display = isWorkMode ? '' : 'none';
+  if (copyAxleBtn) copyAxleBtn.style.display = isWorkMode ? 'none' : '';
   if (copySizeWrapBtn) copySizeWrapBtn.style.display = isWorkMode ? 'none' : '';
   if (copyRimWrapBtn) copyRimWrapBtn.style.display = isWorkMode ? 'none' : '';
   if (photoWrapBtn) photoWrapBtn.style.display = isWorkMode ? 'none' : '';
@@ -431,6 +434,37 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     });
   };
 
+  copyAxleBtn.onclick = ()=>{
+    if (!currentNode) return;
+    const axleId = currentNode.dataset.axle;
+    if (axleId == null || axleId === '') return;
+
+    const payload = {
+      value: currentNode.dataset.value || '',
+      size: formatTyreSize((currentNode.dataset.size || '').trim()),
+      make: capitalizeWords(currentNode.dataset.make || ''),
+      rim: currentNode.dataset.rim || '',
+      et: (currentNode.dataset.et || '').trim()
+    };
+
+    if (!payload.size) payload.size = formatTyreSize((tireSize.value || '').trim());
+    if (!payload.make) payload.make = capitalizeWords(tireMake.value || '');
+    if (!payload.rim) payload.rim = getSelectedRim();
+    if (!payload.et) payload.et = (tireEt.value || '').trim();
+
+    containerEl.querySelectorAll('.tire-node').forEach(node=>{
+      if (node.dataset.axle !== axleId) return;
+      node.dataset.value = payload.value;
+      node.dataset.size = payload.size;
+      node.dataset.make = payload.make;
+      node.dataset.rim = payload.rim;
+      node.dataset.et = payload.et;
+      updateTireNode(node);
+    });
+
+    setActiveValue(Number(payload.value || 0));
+  };
+
   copyRimAllBtn.onclick = ()=>{
     if (!currentNode) return;
     const val = getSelectedRim();
@@ -582,11 +616,12 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     r.readAsDataURL(f);
   };
 
-  function createTireNode(index, label, axleConfig) {
+  function createTireNode(index, label, axleConfig, axleIndex) {
     const node = document.createElement('button');
     node.type = 'button';
     node.className = 'tire-node';
     node.dataset.index = String(index);
+    node.dataset.axle = String(axleIndex);
     node.dataset.value = String(values[index] != null ? values[index] : 10);
     if (notes[index]) node.dataset.note = notes[index];
     if (photos[index]) node.dataset.photo = photos[index];
@@ -623,13 +658,13 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
 
     const isDual = axle.type === 'dual';
     if (isDual) {
-      left.appendChild(createTireNode(leftIndex++, 'U', axle));
-      left.appendChild(createTireNode(leftIndex++, 'S', axle));
-      right.appendChild(createTireNode(rightIndex++, 'S', axle));
-      right.appendChild(createTireNode(rightIndex++, 'U', axle));
+      left.appendChild(createTireNode(leftIndex++, 'U', axle, axleIdx));
+      left.appendChild(createTireNode(leftIndex++, 'S', axle, axleIdx));
+      right.appendChild(createTireNode(rightIndex++, 'S', axle, axleIdx));
+      right.appendChild(createTireNode(rightIndex++, 'U', axle, axleIdx));
     } else {
-      left.appendChild(createTireNode(leftIndex++, '', axle));
-      right.appendChild(createTireNode(rightIndex++, '', axle));
+      left.appendChild(createTireNode(leftIndex++, '', axle, axleIdx));
+      right.appendChild(createTireNode(rightIndex++, '', axle, axleIdx));
     }
 
     const axleLabel = document.createElement('div');

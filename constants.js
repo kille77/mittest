@@ -1,7 +1,24 @@
-// Vehicle Type Presets
 const VEHICLE_PRESETS = {
+  'Auto': [
+    {
+      name: '4x2 (henkilöauto)',
+      axles: 2,
+      data: [
+        { type: 'single' },
+        { type: 'single' }
+      ]
+    },
+    {
+      name: '4x2 (pakettiauto dually)',
+      axles: 2,
+      data: [
+        { type: 'single' },
+        { type: 'dual' }
+      ]
+    }
+  ],
+
   'Kuorma-auto': [
-    // 2-axle
     {
       name: '4x2',
       axles: 2,
@@ -15,18 +32,16 @@ const VEHICLE_PRESETS = {
       axles: 2,
       data: [
         { type: 'single' },
-        { type: 'dual' }
+        { type: 'single' }
       ]
     },
-
-    // 3-axle
     {
       name: '6x2',
       axles: 3,
       data: [
         { type: 'single' },
         { type: 'dual' },
-        { type: 'dual' }
+        { type: 'single' }
       ]
     },
     {
@@ -35,7 +50,7 @@ const VEHICLE_PRESETS = {
       data: [
         { type: 'single' },
         { type: 'dual' },
-        { type: 'dual' }
+        { type: 'single' }
       ]
     },
     {
@@ -52,30 +67,28 @@ const VEHICLE_PRESETS = {
       axles: 3,
       data: [
         { type: 'single' },
-        { type: 'dual' },
-        { type: 'dual' }
+        { type: 'single' },
+        { type: 'single' }
       ]
     },
-
-    // 4-axle
     {
       name: '8x2',
       axles: 4,
       data: [
         { type: 'single' },
+        { type: 'single' },
         { type: 'dual' },
-        { type: 'dual' },
-        { type: 'dual' }
+        { type: 'single' }
       ]
     },
     {
-      name: '8x2*4',
+      name: '8x2*6',
       axles: 4,
       data: [
         { type: 'single' },
+        { type: 'single' },
         { type: 'dual' },
-        { type: 'dual' },
-        { type: 'dual' }
+        { type: 'single' }
       ]
     },
     {
@@ -83,7 +96,7 @@ const VEHICLE_PRESETS = {
       axles: 4,
       data: [
         { type: 'single' },
-        { type: 'dual' },
+        { type: 'single' },
         { type: 'dual' },
         { type: 'dual' }
       ]
@@ -93,7 +106,7 @@ const VEHICLE_PRESETS = {
       axles: 4,
       data: [
         { type: 'single' },
-        { type: 'dual' },
+        { type: 'single' },
         { type: 'dual' },
         { type: 'dual' }
       ]
@@ -102,6 +115,28 @@ const VEHICLE_PRESETS = {
       name: '8x8',
       axles: 4,
       data: [
+        { type: 'single' },
+        { type: 'single' },
+        { type: 'single' },
+        { type: 'single' }
+      ]
+    },
+    {
+      name: '10x4',
+      axles: 5,
+      data: [
+        { type: 'single' },
+        { type: 'single' },
+        { type: 'dual' },
+        { type: 'dual' },
+        { type: 'single' }
+      ]
+    },
+    {
+      name: '10x6',
+      axles: 5,
+      data: [
+        { type: 'single' },
         { type: 'single' },
         { type: 'dual' },
         { type: 'dual' },
@@ -112,7 +147,7 @@ const VEHICLE_PRESETS = {
 
   'Perävaunu': [
     {
-      name: '4x0 (single/single)',
+      name: '4x0 (single)',
       axles: 2,
       data: [
         { type: 'single' },
@@ -120,7 +155,7 @@ const VEHICLE_PRESETS = {
       ]
     },
     {
-      name: '4x0 (dual/dual)',
+      name: '4x0 (dual)',
       axles: 2,
       data: [
         { type: 'dual' },
@@ -128,7 +163,7 @@ const VEHICLE_PRESETS = {
       ]
     },
     {
-      name: '6x0 (single/single/single)',
+      name: '6x0 (single)',
       axles: 3,
       data: [
         { type: 'single' },
@@ -137,7 +172,7 @@ const VEHICLE_PRESETS = {
       ]
     },
     {
-      name: '6x0 (dual/dual/dual)',
+      name: '6x0 (dual)',
       axles: 3,
       data: [
         { type: 'dual' },
@@ -146,7 +181,17 @@ const VEHICLE_PRESETS = {
       ]
     },
     {
-      name: '8x0 (dual/dual/dual/dual)',
+      name: '8x0 (single)',
+      axles: 4,
+      data: [
+        { type: 'single' },
+        { type: 'single' },
+        { type: 'single' },
+        { type: 'single' }
+      ]
+    },
+    {
+      name: '8x0 (dual)',
       axles: 4,
       data: [
         { type: 'dual' },
@@ -154,23 +199,50 @@ const VEHICLE_PRESETS = {
         { type: 'dual' },
         { type: 'dual' }
       ]
-    }
-  ],
-
-  'Auto': [
+    },
     {
-      name: '4x2 (single/single)',
-      axles: 2,
+      name: '10x0 (single)',
+      axles: 5,
       data: [
+        { type: 'single' },
+        { type: 'single' },
+        { type: 'single' },
         { type: 'single' },
         { type: 'single' }
       ]
     },
     {
-      name: '4x2 (single/dual)',
-      axles: 2,
+      name: '10x0 (dual)',
+      axles: 5,
+      data: [
+        { type: 'dual' },
+        { type: 'dual' },
+        { type: 'dual' },
+        { type: 'dual' },
+        { type: 'dual' }
+      ]
+    },
+    {
+      name: '12x0 (single)',
+      axles: 6,
       data: [
         { type: 'single' },
+        { type: 'single' },
+        { type: 'single' },
+        { type: 'single' },
+        { type: 'single' },
+        { type: 'single' }
+      ]
+    },
+    {
+      name: '12x0 (dual)',
+      axles: 6,
+      data: [
+        { type: 'dual' },
+        { type: 'dual' },
+        { type: 'dual' },
+        { type: 'dual' },
+        { type: 'dual' },
         { type: 'dual' }
       ]
     }

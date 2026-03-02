@@ -215,14 +215,37 @@ function updateConfigButtonState() {
   btnOpenConfig.classList.toggle('missing-config', !hasConfig);
 }
 
+function prefillVehicleFieldsFromPlate(plateRaw) {
+  const plate = (plateRaw || '').trim().toUpperCase();
+  if (!plate) return;
+
+  const companyMap = loadMap(StorageKeys.plateCompanyMap());
+  if (companyMap[plate]) companyInput.value = companyMap[plate];
+
+  const makeModelMap = loadMap(StorageKeys.plateMakeModelMap());
+  if (makeModelMap[plate]) {
+    makeInput.value = capitalizeWords(makeModelMap[plate].make || '');
+    modelInput.value = capitalizeWords(makeModelMap[plate].model || '');
+  }
+
+  const typeInputs = document.querySelectorAll('#vehicleType input[type="radio"]');
+  const plateTypeMap = loadMap(StorageKeys.plateTypeMap());
+  const lastWithType = [...HistoryManager.load()].reverse().find(r => r.plate === plate && r.type) || null;
+  const resolvedType = plateTypeMap[plate] || (lastWithType && lastWithType.type) || '';
+
+  if (resolvedType) {
+    typeInputs.forEach(b=>{ b.checked = (b.value === resolvedType); });
+    window.__selectedVehicleType = resolvedType;
+  }
+}
+
 // Autocomplete setup
 setupAutocomplete(
   plateInput,
   plateSuggestions,
   ()=>loadList(StorageKeys.plates()),
   (plate)=>{
-    const map = loadMap(StorageKeys.plateCompanyMap());
-    if (map[plate]) companyInput.value = map[plate];
+    prefillVehicleFieldsFromPlate(plate);
     updateConfigButtonState();
   },
   (val)=>val.toUpperCase()
@@ -231,6 +254,7 @@ setupAutocomplete(
 plateInput.addEventListener('input', updateConfigButtonState);
 plateInput.addEventListener('blur', ()=>{
   plateInput.value = plateInput.value.trim().toUpperCase();
+  prefillVehicleFieldsFromPlate(plateInput.value);
   updateConfigButtonState();
 });
 
@@ -373,6 +397,7 @@ function initAxleConfigModal(vehicleType) {
   axleConfigs.innerHTML = '';
   const cfgList = VEHICLE_PRESETS[vehicleType];
   if (!cfgList) return;
+  const requireAxleCountFirst = vehicleType === 'Kuorma-auto' || vehicleType === 'Perävaunu';
 
   function createMiniTireNode() {
     const tire = document.createElement('div');
@@ -410,7 +435,7 @@ function initAxleConfigModal(vehicleType) {
     return preview;
   }
 
-  cfgList.forEach((cfg, idx) => {
+  function createConfigCard(cfg) {
     const card = document.createElement('div');
     card.className = 'preset-type-card axle-config-card';
     const singles = cfg.data.filter(a=>a.type==='single').length;
@@ -428,8 +453,47 @@ function initAxleConfigModal(vehicleType) {
       alert('Konfiguraatio tallennettu');
       showView('view-home');
     };
-    axleConfigs.appendChild(card);
-  });
+    return card;
+  }
+
+  function renderConfigCards(configs, selectedAxleCount = null) {
+    axleConfigs.innerHTML = '';
+
+    if (requireAxleCountFirst && selectedAxleCount != null) {
+      const backBtn = document.createElement('button');
+      backBtn.className = 'btn-sm';
+      backBtn.type = 'button';
+      backBtn.textContent = '← Vaihda akselimäärä';
+      backBtn.style.marginBottom = '10px';
+      backBtn.onclick = renderAxleCountCards;
+      axleConfigs.appendChild(backBtn);
+    }
+
+    configs.forEach(cfg => axleConfigs.appendChild(createConfigCard(cfg)));
+  }
+
+  function renderAxleCountCards() {
+    axleConfigs.innerHTML = '';
+    const axleCounts = [...new Set(cfgList.map(cfg => Number(cfg.axles)).filter(Boolean))].sort((a,b)=>a-b);
+
+    axleCounts.forEach(axles => {
+      const countConfigs = cfgList.filter(cfg => Number(cfg.axles) === axles);
+      const card = document.createElement('div');
+      card.className = 'preset-type-card axle-config-card';
+      card.innerHTML = `
+        <div class="preset-type-name" style="font-size:1.1rem;">${axles} akselia</div>
+        <div class="preset-type-info">${countConfigs.length} vaihtoehtoa</div>
+      `;
+      card.onclick = ()=> renderConfigCards(countConfigs, axles);
+      axleConfigs.appendChild(card);
+    });
+  }
+
+  if (requireAxleCountFirst) {
+    renderAxleCountCards();
+  } else {
+    renderConfigCards(cfgList);
+  }
 }
 
 function openAxleConfigModal(vehicleType) {
@@ -529,9 +593,6 @@ function startInspection(mode = 'measurement') {
   currentPositions = buildPositions(cfg);
 
   const last = HistoryManager.lastForPlate(plate);
-  if (mode === 'work' && (!last || !last.values || !last.values.length)) {
-    return alert('Ei aiempaa mittausta. Tee ensin Uusi mittaus');
-  }
   const prevValues = last?last.values:null;
   const prevNotes = last?last.notes:null;
   const prevPhotos = last?last.photos:null;
@@ -627,7 +688,7 @@ btnSaveInspection.onclick = ()=>{
   const last = HistoryManager.lastForPlate(plate);
   const wear = values.map((v,i)=>{
     if (!last || !last.values || last.values[i]==null) return null;
-    return (last.values[i]-v).toFixed(1);
+    return (v-last.values[i]).toFixed(1);
   });
 
   const record = {
