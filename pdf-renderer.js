@@ -265,6 +265,71 @@ function drawPhotoGallery(doc, y, r, page) {
   return page.bottom;
 }
 
+function parseWorkItems(raw) {
+  return String(raw || '')
+    .split(',')
+    .map(item=>item.trim())
+    .filter(Boolean);
+}
+
+function buildWorkProductLabel(r, index) {
+  const make = r.tireMakes && r.tireMakes[index] ? r.tireMakes[index] : '';
+  const size = r.tireSizes && r.tireSizes[index] ? r.tireSizes[index] : '';
+  return make || size || '-';
+}
+
+function buildWorkSummaryRows(r) {
+  const workSummary = new Map();
+  const productSummary = new Map();
+  const positions = r.positions || [];
+
+  positions.forEach((_, i)=>{
+    const items = parseWorkItems(r.tireWorks && r.tireWorks[i] ? r.tireWorks[i] : '');
+    if (!items.length) return;
+
+    items.forEach(work=>{
+      workSummary.set(work, (workSummary.get(work) || 0) + 1);
+    });
+
+    const tireProduct = buildWorkProductLabel(r, i);
+    if (tireProduct && tireProduct !== '-') {
+      const key = tireProduct;
+      productSummary.set(key, (productSummary.get(key) || 0) + 1);
+    }
+
+    const hasRimWork = items.some(work=> String(work || '').trim().startsWith('Vanteen vaihto'));
+
+    if (hasRimWork) {
+      const rimFromWork = items
+        .map(work=>{
+          const match = String(work || '').trim().match(/^Vanteen vaihto\s*\(([^)]+)\)$/i);
+          return match && match[1] ? match[1].trim() : '';
+        })
+        .find(Boolean);
+      const rimProduct = rimFromWork || (r.tireRims && r.tireRims[i] ? r.tireRims[i] : '');
+      if (rimProduct) {
+        const key = `Vanne ${rimProduct}`;
+        productSummary.set(key, (productSummary.get(key) || 0) + 1);
+      }
+    }
+  });
+
+  const rows = [];
+  [...workSummary.entries()]
+    .sort((a,b)=>a[0].localeCompare(b[0], 'fi-FI'))
+    .forEach(([work, count])=>{
+      rows.push([work, `${count} kpl`]);
+    });
+
+  [...productSummary.entries()]
+    .sort((a,b)=>a[0].localeCompare(b[0], 'fi-FI'))
+    .forEach(([product, count])=>{
+      rows.push([product, `${count} kpl`]);
+    });
+
+  return rows;
+}
+
 function renderReport(doc, r, options={}) {
   const page = { left: 20, right: 190, top: 18, bottom: 280 };
   let y = page.top;
@@ -358,6 +423,11 @@ function renderReport(doc, r, options={}) {
     }).filter(row=> row[1] && row[1] !== "-");
     if (!workRows.length) workRows.push(["-", "-"]);
     y = drawTable(doc, y, ["Sijainti","Työt"], workRows, [50, 120], page);
+
+    y = drawSectionTitle(doc, "Työyhteenveto", y, page);
+    const workSummaryRows = buildWorkSummaryRows(r);
+    if (!workSummaryRows.length) workSummaryRows.push(["-", "-"]);
+    y = drawTable(doc, y, ["Nimike","Määrä"], workSummaryRows, [130, 40], page);
 
     y = drawSectionTitle(doc, "Rengasvaihdot", y, page);
     const changeRows = (r.positions || []).map((p,i)=>{
@@ -488,6 +558,17 @@ function generateCompanyPdf(company, mode = 'all') {
       if (!hasWorks) html += '<tr><td>-</td><td>-</td></tr>';
       html += '</table>';
 
+      html += '<h3>Työyhteenveto</h3><table><tr><th>Nimike</th><th>Määrä</th></tr>';
+      const workSummaryRows = buildWorkSummaryRows(r);
+      if (!workSummaryRows.length) {
+        html += '<tr><td>-</td><td>-</td></tr>';
+      } else {
+        workSummaryRows.forEach(row=>{
+          html += `<tr><td>${row[0]}</td><td>${row[1]}</td></tr>`;
+        });
+      }
+      html += '</table>';
+
       html += '<h3>Rengasvaihdot</h3><table><tr><th>Sijainti</th><th>Vanha mm</th><th>Huomio</th><th>Vanha merkki/malli</th><th>Vanha runkonumero</th><th>Uusi merkki/malli</th><th>Uusi runkonumero</th></tr>';
       let hasChanges = false;
       (r.positions || []).forEach((p,i)=>{
@@ -596,6 +677,17 @@ function generateVehiclePdf(plate, mode = 'all') {
         html += `<tr><td>${p}</td><td>${works}</td></tr>`;
       });
       if (!hasWorks) html += '<tr><td>-</td><td>-</td></tr>';
+      html += '</table>';
+
+      html += '<h3>Työyhteenveto</h3><table><tr><th>Nimike</th><th>Määrä</th></tr>';
+      const workSummaryRows = buildWorkSummaryRows(r);
+      if (!workSummaryRows.length) {
+        html += '<tr><td>-</td><td>-</td></tr>';
+      } else {
+        workSummaryRows.forEach(row=>{
+          html += `<tr><td>${row[0]}</td><td>${row[1]}</td></tr>`;
+        });
+      }
       html += '</table>';
 
       html += '<h3>Rengasvaihdot</h3><table><tr><th>Sijainti</th><th>Vanha mm</th><th>Huomio</th><th>Vanha merkki/malli</th><th>Vanha runkonumero</th><th>Uusi merkki/malli</th><th>Uusi runkonumero</th></tr>';

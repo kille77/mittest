@@ -449,6 +449,24 @@ header {
   background:var(--danger) !important;
   color:#fff !important;
 }
+.tire-change-tabs {
+  display:flex;
+  gap:8px;
+}
+.tire-change-tab-btn.active {
+  background:var(--primary);
+  color:#fff;
+}
+.tire-old-field {
+  width:100%;
+  padding:8px;
+  margin-bottom:8px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:#f9fafb;
+  color:var(--text);
+  font-size:0.95rem;
+}
 .tire-modal .photo-preview {
   width:100%;
   height:120px;
