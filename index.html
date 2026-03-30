@@ -82,6 +82,73 @@
     <button class="btn" id="btnOpenConfig">Akseli konfiguraatio</button>
   </div>
 
+  <div class="card" id="vehicleStatusCard">
+    <h2>Ajoneuvon tila</h2>
+    <div id="vehicleStatusContent" class="vehicle-status-empty">Syötä rekisterinumero nähdäksesi ajoneuvon tilan ja seuraavan suositellun vaiheen.</div>
+  </div>
+
+  <div class="card">
+    <h2>Hallinta</h2>
+    <button class="btn" id="btnOpenCompanySettings">Yritysasetukset</button>
+    <button class="btn" id="btnOpenReports">Raportit</button>
+  </div>
+</section>
+
+<!-- COMPANY SETTINGS VIEW -->
+<section id="view-company-settings" class="view">
+  <header>
+    <button class="btn back" data-back>←</button>
+    <h2>Yritysasetukset</h2>
+  </header>
+
+  <div class="card" id="companyThresholdCard">
+    <h2>Yritysasetukset</h2>
+    <div class="company-settings-toolbar">
+      <div class="company-settings-select-wrap">
+        <label for="companySettingsSelect">Valitse yritys</label>
+        <select id="companySettingsSelect"></select>
+      </div>
+      <button class="btn secondary company-settings-link-btn" id="btnUseCurrentCompanySettings" type="button">Valitse lomakkeen yritys</button>
+    </div>
+    <div id="companyThresholdEmpty" class="company-threshold-empty">Yrityksiä ei ole vielä tallennettu. Syötä yritys lomakkeelle tai tallenna raportti, niin se ilmestyy tähän valikkoon.</div>
+    <div id="companyThresholdPanel" class="company-threshold-panel" style="display:none;">
+      <div class="company-threshold-grid">
+        <div class="company-threshold-field">
+          <label for="companyDangerThreshold">Punainen enintään</label>
+          <input id="companyDangerThreshold" type="number" min="0" step="0.1" placeholder="5.0">
+        </div>
+        <div class="company-threshold-field">
+          <label for="companyWarningThreshold">Keltainen enintään</label>
+          <input id="companyWarningThreshold" type="number" min="0" step="0.1" placeholder="9.0">
+        </div>
+      </div>
+      <div id="companyThresholdPreview" class="company-threshold-preview"></div>
+      <div class="company-threshold-field">
+        <label for="companyInstructions">Yrityskohtaiset ohjeet</label>
+        <textarea id="companyInstructions" placeholder="Kirjoita tähän yrityksen erityisohjeet, huomautukset tai työohjeet."></textarea>
+      </div>
+      <div class="company-position-products-section">
+        <div class="company-position-products-header">
+          <h3>Tuotteet tietyille positioille</h3>
+          <button class="btn secondary company-settings-link-btn" id="btnAddCompanyPositionProduct" type="button">Lisää positio</button>
+        </div>
+        <div id="companyPositionProducts" class="company-position-products"></div>
+      </div>
+      <div class="company-threshold-actions">
+        <button class="btn primary" id="btnSaveCompanyThresholds" type="button">Tallenna yritysasetukset</button>
+        <button class="btn secondary" id="btnResetCompanyThresholds" type="button">Palauta mm-rajat</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- REPORTS VIEW -->
+<section id="view-reports" class="view">
+  <header>
+    <button class="btn back" data-back>←</button>
+    <h2>Raportit</h2>
+  </header>
+
   <div class="card">
     <h2>Raportit</h2>
     <div id="historyList"></div>
@@ -105,6 +172,7 @@
   </div>
 
   <div class="card">
+    <div id="configStateHint" class="state-hint" style="display:none;">Tallentamattomia muutoksia</div>
     <button class="btn primary" id="btnSaveConfig">Tallenna</button>
   </div>
 </section>
@@ -125,8 +193,15 @@
     <div id="measureList"></div>
   </div>
 
+  <div class="card" id="workSummaryCard" style="display:none;">
+    <h3>Työyhteenveto</h3>
+    <div id="workSummaryContent"></div>
+  </div>
+
   <div class="card">
-    <button class="btn primary" id="btnSaveInspection">Tallenna mittaus</button>
+    <div id="measureStateHint" class="state-hint" style="display:none;">Tallentamattomia muutoksia</div>
+    <button class="btn primary" id="btnSaveInspection">Tallenna työ</button>
+    <button class="btn secondary" id="btnSaveDraft" style="margin-left: 8px;">Tallenna keskeneräisenä</button>
   </div>
 </section>
 
@@ -158,6 +233,7 @@
 <script src="./autocomplete.js"></script>
 <script src="./ui-builder.js"></script>
 <script src="./pdf-renderer.js"></script>
+<script src="./product-catalog.js"></script>
 
 <!-- Main application logic -->
 <script>
@@ -169,6 +245,14 @@ const saveList = window.saveList;
 const saveMap = window.saveMap;
 const ConfigManager = window.ConfigManager;
 const HistoryManager = window.HistoryManager;
+const DraftManager = window.DraftManager;
+const getDefaultMeasureThresholds = window.getDefaultMeasureThresholds;
+const normalizeMeasureThresholds = window.normalizeMeasureThresholds;
+const getCompanySettings = window.getCompanySettings;
+const saveCompanySettings = window.saveCompanySettings;
+const listCompanySettingsCompanies = window.listCompanySettingsCompanies;
+const getCompanyMeasureThresholds = window.getCompanyMeasureThresholds;
+const saveCompanyMeasureThresholds = window.saveCompanyMeasureThresholds;
 
 const formatTyreSize = window.formatTyreSize;
 const capitalizeWords = window.capitalizeWords;
@@ -186,12 +270,32 @@ const typeInput = document.getElementById("vehicleType");
 const btnStartInspection = document.getElementById('btnStartInspection');
 const btnStartWork = document.getElementById('btnStartWork');
 const btnSaveInspection = document.getElementById('btnSaveInspection');
+const btnSaveDraft = document.getElementById('btnSaveDraft');
+const btnOpenCompanySettings = document.getElementById('btnOpenCompanySettings');
+const btnOpenReports = document.getElementById('btnOpenReports');
 const measureViewTitle = document.getElementById('measureViewTitle');
 const ajokilometritInput = document.getElementById('ajokilometrit');
 const btnOpenConfig = document.getElementById("btnOpenConfig");
 const axleSelector = document.getElementById("axleSelector");
 const configAxles = document.getElementById("configAxles");
 const measureList = document.getElementById("measureList");
+const workSummaryCard = document.getElementById('workSummaryCard');
+const workSummaryContent = document.getElementById('workSummaryContent');
+const vehicleStatusContent = document.getElementById('vehicleStatusContent');
+const companyThresholdEmpty = document.getElementById('companyThresholdEmpty');
+const companyThresholdPanel = document.getElementById('companyThresholdPanel');
+const companySettingsSelect = document.getElementById('companySettingsSelect');
+const btnUseCurrentCompanySettings = document.getElementById('btnUseCurrentCompanySettings');
+const companyDangerThresholdInput = document.getElementById('companyDangerThreshold');
+const companyWarningThresholdInput = document.getElementById('companyWarningThreshold');
+const companyThresholdPreview = document.getElementById('companyThresholdPreview');
+const companyInstructionsInput = document.getElementById('companyInstructions');
+const companyPositionProducts = document.getElementById('companyPositionProducts');
+const btnAddCompanyPositionProduct = document.getElementById('btnAddCompanyPositionProduct');
+const btnSaveCompanyThresholds = document.getElementById('btnSaveCompanyThresholds');
+const btnResetCompanyThresholds = document.getElementById('btnResetCompanyThresholds');
+const configStateHint = document.getElementById('configStateHint');
+const measureStateHint = document.getElementById('measureStateHint');
 const historyList = document.getElementById("historyList");
 
 const plateSuggestions = document.getElementById("plateSuggestions");
@@ -200,19 +304,642 @@ const companySuggestions = document.getElementById("companySuggestions");
 let currentConfig = null;
 let currentPositions = null;
 let currentInspectionMode = 'measurement';
+let currentHistoryEditIndex = null;
+let currentMeasureReadOnly = false;
+let currentMeasureDirty = false;
+let currentMeasureHydrating = false;
+let currentConfigDirty = false;
+const importedCatalogState = {
+  loaded: false,
+  promise: null,
+  error: null
+};
+
+function mergeUniqueList(key, values, normalizer = null) {
+  if (!Array.isArray(values) || !values.length) return;
+
+  const existing = loadList(key);
+  const seen = new Set(existing.map(value => String(value || '').trim()).filter(Boolean));
+  let changed = false;
+
+  values.forEach(value => {
+    const raw = String(value || '').trim();
+    if (!raw) return;
+
+    const normalized = normalizer ? normalizer(raw) : raw;
+    const finalValue = String(normalized || '').trim();
+    if (!finalValue || seen.has(finalValue)) return;
+
+    seen.add(finalValue);
+    existing.push(finalValue);
+    changed = true;
+  });
+
+  if (changed) {
+    saveList(key, existing.sort((a, b) => String(a).localeCompare(String(b), 'fi')));
+  }
+}
+
+function mergeImportedProductCatalog(catalog) {
+  if (!catalog || typeof catalog !== 'object') return;
+
+  mergeUniqueList(StorageKeys.tyreSizes(), catalog.tyreSizes || [], formatTyreSize);
+  mergeUniqueList(StorageKeys.tyreMakes(), catalog.tyreMakes || []);
+  mergeUniqueList(StorageKeys.etValues(), catalog.etValues || [], value => String(value || '').replace(',', '.'));
+
+  window.__productCatalog = catalog;
+}
+
+function loadImportedProductCatalog() {
+  if (importedCatalogState.loaded) {
+    return window.__importedProductCatalog || null;
+  }
+
+  try {
+    const catalog = window.__importedProductCatalog || null;
+    if (!catalog) {
+      throw new Error('product-catalog.js not loaded');
+    }
+
+    mergeImportedProductCatalog(catalog);
+    importedCatalogState.loaded = true;
+    importedCatalogState.error = null;
+    return catalog;
+  } catch (error) {
+    importedCatalogState.error = error;
+    console.warn('Product catalog import skipped:', error);
+    return null;
+  }
+}
 
 function setInspectionMode(mode) {
   currentInspectionMode = mode === 'work' ? 'work' : 'measurement';
   const isWorkMode = currentInspectionMode === 'work';
   measureViewTitle.textContent = isWorkMode ? 'Tehdyt työt' : 'Mittaukset';
   btnSaveInspection.textContent = isWorkMode ? 'Tallenna työ' : 'Tallenna mittaus';
+  btnSaveDraft.textContent = isWorkMode ? 'Tallenna keskeneräisenä' : 'Tallenna keskeneräisenä';
 }
 
 function updateConfigButtonState() {
   const plate = plateInput.value.trim().toUpperCase();
   const hasConfig = !!(plate && ConfigManager.load(plate));
+  const hasPlate = !!plate;
   btnOpenConfig.classList.toggle('has-config', hasConfig);
   btnOpenConfig.classList.toggle('missing-config', !hasConfig);
+  btnOpenConfig.disabled = !hasPlate;
+  btnStartInspection.disabled = !hasPlate || !hasConfig;
+  btnStartWork.disabled = !hasPlate || !hasConfig;
+}
+
+function formatThresholdValue(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '';
+  return Number.isInteger(numeric) ? String(numeric) : numeric.toFixed(1);
+}
+
+function renderCompanyThresholdPreview(thresholds) {
+  if (!companyThresholdPreview) return;
+  companyThresholdPreview.innerHTML = `
+    <span class="threshold-badge threshold-badge-danger">0-${formatThresholdValue(thresholds.danger)} mm</span>
+    <span class="threshold-badge threshold-badge-warning">${formatThresholdValue(thresholds.danger)}-${formatThresholdValue(thresholds.warning)} mm</span>
+    <span class="threshold-badge threshold-badge-ok">yli ${formatThresholdValue(thresholds.warning)} mm</span>
+  `;
+}
+
+function createCompanyPositionProductRow(item = {}) {
+  const row = document.createElement('div');
+  row.className = 'company-position-product-row';
+  row.innerHTML = `
+    <input type="text" class="company-position-input" placeholder="Esim. Akseli 1 vasen" value="${String(item.position || '').replace(/"/g, '&quot;')}">
+    <input type="text" class="company-product-input" placeholder="Esim. 315/70R22.5 Michelin X Multi" value="${String(item.product || '').replace(/"/g, '&quot;')}">
+    <button type="button" class="btn danger company-position-remove-btn">Poista</button>
+  `;
+  row.querySelector('.company-position-remove-btn').onclick = ()=>{
+    row.remove();
+  };
+  return row;
+}
+
+function renderCompanyPositionProducts(items) {
+  if (!companyPositionProducts) return;
+  companyPositionProducts.innerHTML = '';
+  const rows = Array.isArray(items) && items.length ? items : [{ position: '', product: '' }];
+  rows.forEach(item=>{
+    companyPositionProducts.appendChild(createCompanyPositionProductRow(item));
+  });
+}
+
+function collectCompanyPositionProducts() {
+  if (!companyPositionProducts) return [];
+  return [...companyPositionProducts.querySelectorAll('.company-position-product-row')]
+    .map(row=>({
+      position: row.querySelector('.company-position-input').value.trim(),
+      product: row.querySelector('.company-product-input').value.trim()
+    }))
+    .filter(item=>item.position || item.product);
+}
+
+function getSelectedCompanySettingsName() {
+  return String(companySettingsSelect ? companySettingsSelect.value : '').trim();
+}
+
+function syncCompanySettingsOptions(preferredCompany = '') {
+  if (!companySettingsSelect) return '';
+  const options = listCompanySettingsCompanies([companyInput.value.trim(), preferredCompany]);
+  const currentValue = String(preferredCompany || companySettingsSelect.value || companyInput.value || '').trim();
+
+  companySettingsSelect.innerHTML = '';
+  options.forEach(company=>{
+    const option = document.createElement('option');
+    option.value = company;
+    option.textContent = company;
+    companySettingsSelect.appendChild(option);
+  });
+
+  if (options.length) {
+    const nextValue = options.includes(currentValue) ? currentValue : options[0];
+    companySettingsSelect.value = nextValue;
+    return nextValue;
+  }
+
+  return '';
+}
+
+function renderCompanyThresholdSettings(preferredCompany = '') {
+  const company = syncCompanySettingsOptions(preferredCompany);
+  const hasCompany = !!company;
+  if (companyThresholdEmpty) companyThresholdEmpty.style.display = hasCompany ? 'none' : '';
+  if (companyThresholdPanel) companyThresholdPanel.style.display = hasCompany ? '' : 'none';
+
+  if (!hasCompany) return;
+
+  const settings = getCompanySettings(company);
+  const thresholds = settings.thresholds || getDefaultMeasureThresholds();
+  if (companyDangerThresholdInput) companyDangerThresholdInput.value = formatThresholdValue(thresholds.danger);
+  if (companyWarningThresholdInput) companyWarningThresholdInput.value = formatThresholdValue(thresholds.warning);
+  if (companyInstructionsInput) companyInstructionsInput.value = settings.instructions || '';
+  renderCompanyPositionProducts(settings.positionProducts || []);
+  renderCompanyThresholdPreview(thresholds);
+}
+
+function getThresholdInputsValue() {
+  return normalizeMeasureThresholds({
+    danger: companyDangerThresholdInput ? companyDangerThresholdInput.value : null,
+    warning: companyWarningThresholdInput ? companyWarningThresholdInput.value : null
+  });
+}
+
+function saveCurrentCompanyThresholds(useDefaults = false) {
+  const company = getSelectedCompanySettingsName();
+  if (!company) return alert('Valitse yritys ennen asetusten tallennusta');
+
+  const currentSettings = getCompanySettings(company);
+  const nextSettings = {
+    thresholds: useDefaults ? getDefaultMeasureThresholds() : getThresholdInputsValue(),
+    instructions: companyInstructionsInput ? companyInstructionsInput.value.trim() : currentSettings.instructions,
+    positionProducts: collectCompanyPositionProducts()
+  };
+
+  saveCompanySettings(company, nextSettings);
+  renderCompanyThresholdSettings(company);
+  alert(useDefaults ? 'Yrityksen mm-rajat palautettu oletuksiin' : 'Yritysasetukset tallennettu');
+}
+
+function updateDirtyStateHints() {
+  if (configStateHint) configStateHint.style.display = currentConfigDirty ? '' : 'none';
+  if (measureStateHint) measureStateHint.style.display = currentMeasureDirty && !currentMeasureReadOnly ? '' : 'none';
+}
+
+function markConfigDirty() {
+  currentConfigDirty = true;
+  updateDirtyStateHints();
+}
+
+function resetConfigDirty() {
+  currentConfigDirty = false;
+  updateDirtyStateHints();
+}
+
+function markMeasureDirty() {
+  if (currentMeasureHydrating || currentMeasureReadOnly) return;
+  currentMeasureDirty = true;
+  updateDirtyStateHints();
+}
+
+function resetMeasureDirty() {
+  currentMeasureDirty = false;
+  updateDirtyStateHints();
+}
+
+function getCurrentViewId() {
+  const active = document.querySelector('.view.active');
+  return active ? active.id : '';
+}
+
+function confirmLeaveIfNeeded() {
+  const currentViewId = getCurrentViewId();
+  if (currentViewId === 'view-config' && currentConfigDirty) {
+    return confirm('Konfiguraatiossa on tallentamattomia muutoksia. Poistutaanko silti?');
+  }
+  if (currentViewId === 'view-measure' && currentMeasureDirty && !currentMeasureReadOnly) {
+    return confirm('Työssä tai mittauksessa on tallentamattomia muutoksia. Poistutaanko silti?');
+  }
+  return true;
+}
+
+function reportRuntimeError(context, error) {
+  const message = error && error.message ? error.message : String(error || 'Tuntematon virhe');
+  const stack = error && error.stack ? String(error.stack) : '';
+  console.error(`Runtime error in ${context}:`, error);
+  alert(`Virhe (${context}): ${message}${stack ? `\n\n${stack}` : ''}`);
+}
+
+function renderVehicleStatus() {
+  if (!vehicleStatusContent) return;
+
+  const plate = plateInput.value.trim().toUpperCase();
+  if (!plate) {
+    vehicleStatusContent.className = 'vehicle-status-empty';
+    vehicleStatusContent.textContent = 'Syötä rekisterinumero nähdäksesi ajoneuvon tilan ja seuraavan suositellun vaiheen.';
+    return;
+  }
+
+  const config = ConfigManager.load(plate);
+  const draft = DraftManager.getForPlate(plate);
+  const allHistory = HistoryManager.load().filter(r => r.plate === plate);
+  const latestCompleted = allHistory.length ? allHistory[allHistory.length - 1] : null;
+  const latestMeasurement = [...allHistory].reverse().find(r => (r.mode || 'measurement') !== 'work') || null;
+  const latestWork = [...allHistory].reverse().find(r => r.mode === 'work') || null;
+
+  const badges = [
+    `<span class="status-badge ${config ? 'ok' : 'warn'}">${config ? 'Konfiguraatio tallennettu' : 'Konfiguraatio puuttuu'}</span>`,
+    `<span class="status-badge ${draft ? 'warn' : 'neutral'}">${draft ? 'Keskeneräinen työ löytyy' : 'Ei keskeneräisiä'}</span>`,
+    `<span class="status-badge neutral">${allHistory.length} tallennetta</span>`
+  ].join('');
+
+  let recommendation = 'Seuraava vaihe: avaa akselikonfiguraatio.';
+  if (config && draft) recommendation = 'Seuraava vaihe: jatka keskeneräistä luonnosta Raportit-osiosta.';
+  else if (config) recommendation = 'Seuraava vaihe: aloita uusi mittaus tai työ.';
+
+  vehicleStatusContent.className = 'vehicle-status-grid';
+  vehicleStatusContent.innerHTML = `
+    <div class="vehicle-status-badges">${badges}</div>
+    <div class="vehicle-status-row"><span>Viimeisin tallenne</span><strong>${latestCompleted ? latestCompleted.date : 'Ei tallenteita'}</strong></div>
+    <div class="vehicle-status-row"><span>Viimeisin mittaus</span><strong>${latestMeasurement ? latestMeasurement.date : 'Ei mittauksia'}</strong></div>
+    <div class="vehicle-status-row"><span>Viimeisin työ</span><strong>${latestWork ? latestWork.date : 'Ei töitä'}</strong></div>
+    <div class="vehicle-status-help">${recommendation}</div>
+  `;
+}
+
+function parseStoredWorkItem(item) {
+  const trimmed = String(item || '').trim();
+  if (!trimmed) return { code: '', workRim: '' };
+
+  const rimMatch = trimmed.match(/^Vanteen vaihto\s*\(([^)]+)\)$/i);
+  if (rimMatch) {
+    return {
+      code: 'Vanteen vaihto',
+      workRim: (rimMatch[1] || '').trim()
+    };
+  }
+
+  return { code: trimmed, workRim: '' };
+}
+
+function parseStoredWorkItems(raw) {
+  const text = String(raw || '');
+  const items = [];
+  let current = '';
+  let depth = 0;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '(') {
+      depth++;
+      current += ch;
+      continue;
+    }
+    if (ch === ')') {
+      depth = Math.max(0, depth - 1);
+      current += ch;
+      continue;
+    }
+    if (ch === ',' && depth === 0) {
+      const item = current.trim();
+      if (item) items.push(item);
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+
+  const tail = current.trim();
+  if (tail) items.push(tail);
+  return items;
+}
+
+function getRecordWorkState(record) {
+  const workCodes = record && Array.isArray(record.tireWorkCodes) ? record.tireWorkCodes : [];
+  const workRims = record && Array.isArray(record.tireWorkRims) ? record.tireWorkRims : [];
+  const workLabels = record && Array.isArray(record.tireWorks) ? record.tireWorks : [];
+  const total = Math.max(
+    workCodes.length,
+    workRims.length,
+    workLabels.length,
+    record && Array.isArray(record.positions) ? record.positions.length : 0
+  );
+
+  const rawWorks = [];
+  const rawWorkRims = [];
+
+  for (let i = 0; i < total; i++) {
+    const rawCode = String(workCodes[i] || '').trim();
+    const rawRim = String(workRims[i] || '').trim();
+
+    if (rawCode || rawRim) {
+      rawWorks[i] = rawCode || null;
+      rawWorkRims[i] = rawRim || null;
+      continue;
+    }
+
+    const parsedItems = parseStoredWorkItems(workLabels[i] || '')
+      .map(item=>parseStoredWorkItem(item))
+      .filter(item=>item.code);
+
+    rawWorks[i] = parsedItems.map(item=>item.code).join('|') || null;
+    rawWorkRims[i] = (parsedItems.find(item=>item.workRim) || {}).workRim || null;
+  }
+
+  return { rawWorks, rawWorkRims };
+}
+
+function applyMeasureInteractionState(options = {}) {
+  const readOnly = !!options.readOnly;
+  const historyIndex = typeof options.historyIndex === 'number' ? options.historyIndex : null;
+  const isWorkMode = currentInspectionMode === 'work';
+  const isEditingSavedRecord = !readOnly && historyIndex != null;
+
+  currentMeasureReadOnly = readOnly;
+  currentHistoryEditIndex = isEditingSavedRecord ? historyIndex : null;
+
+  if (readOnly) {
+    measureViewTitle.textContent = isWorkMode ? 'Tallennettu työ' : 'Tallennettu mittaus';
+  } else if (isEditingSavedRecord) {
+    measureViewTitle.textContent = isWorkMode ? 'Muokkaa tallennettua työtä' : 'Muokkaa tallennettua mittausta';
+  } else {
+    measureViewTitle.textContent = isWorkMode ? 'Tehdyt työt' : 'Mittaukset';
+  }
+
+  btnSaveInspection.style.display = readOnly ? 'none' : '';
+  btnSaveDraft.style.display = readOnly ? 'none' : '';
+  btnSaveInspection.textContent = isEditingSavedRecord
+    ? (isWorkMode ? 'Päivitä työ' : 'Päivitä mittaus')
+    : (isWorkMode ? 'Tallenna työ' : 'Tallenna mittaus');
+  btnSaveDraft.textContent = 'Tallenna keskeneräisenä';
+  ajokilometritInput.readOnly = readOnly;
+  document.querySelectorAll('#vehicleType input[type="radio"]').forEach(input=>{
+    input.disabled = readOnly;
+  });
+
+  workSummaryCard.style.display = isWorkMode ? '' : 'none';
+
+  if (window.setMeasurementReadOnlyState) {
+    window.setMeasurementReadOnlyState(measureList, readOnly);
+  }
+
+  renderWorkSummaryFromNodes();
+}
+
+function renderWorkSummaryFromNodes() {
+  if (!workSummaryCard || !workSummaryContent) return;
+
+  if (currentInspectionMode !== 'work') {
+    workSummaryCard.style.display = 'none';
+    workSummaryContent.innerHTML = '';
+    return;
+  }
+
+  workSummaryCard.style.display = '';
+
+  const nodes = [...measureList.querySelectorAll('.tire-node')]
+    .sort((a,b)=>Number(a.dataset.index)-Number(b.dataset.index));
+
+  const isSizeOnlyTyreLabel = (value)=>{
+    const text = String(value || '').trim().toUpperCase();
+    if (!text) return false;
+    return text === String(formatTyreSize(text) || '').trim().toUpperCase();
+  };
+
+  const workSummary = new Map();
+  const productSummary = new Map();
+
+  nodes.forEach(node=>{
+    const works = String(node.dataset.works || '')
+      .split('|')
+      .map(item=>item.trim())
+      .filter(Boolean);
+
+    works.forEach(work=>{
+      if (work === 'Vanteen vaihto') return;
+      workSummary.set(work, (workSummary.get(work) || 0) + 1);
+    });
+
+    const hasTireChange = node.dataset.change === '1';
+    if (hasTireChange) {
+      const tireProduct = capitalizeWords(node.dataset.make || '').trim() || formatTyreSize(node.dataset.size || '').trim();
+      if (tireProduct && !isSizeOnlyTyreLabel(tireProduct)) {
+        productSummary.set(tireProduct, (productSummary.get(tireProduct) || 0) + 1);
+      }
+    }
+
+    if (works.includes('Vanteen vaihto')) {
+      const rimProduct = (node.dataset.workRim || '').trim() || (node.dataset.rim || '').trim();
+      if (rimProduct) {
+        const key = rimProduct;
+        productSummary.set(key, (productSummary.get(key) || 0) + 1);
+      }
+    }
+  });
+
+  const workItems = [...workSummary.entries()].sort((a,b)=>a[0].localeCompare(b[0], 'fi-FI'));
+  const productItems = [...productSummary.entries()].sort((a,b)=>a[0].localeCompare(b[0], 'fi-FI'));
+
+  if (!workItems.length && !productItems.length) {
+    workSummaryContent.innerHTML = '<p class="work-summary-empty">Ei lisättyjä töitä.</p>';
+    return;
+  }
+
+  const buildTagRow = (title, items)=> `
+    <div class="work-summary-section">
+      <div class="work-summary-title">${title}</div>
+      <div class="work-summary-tags">
+        ${items.map(([label, count])=>`<span class="work-summary-tag">${label} <strong>${count} kpl</strong></span>`).join('')}
+      </div>
+    </div>
+  `;
+
+  workSummaryContent.innerHTML = [
+    workItems.length ? buildTagRow('Työt', workItems) : '',
+    productItems.length ? buildTagRow('Tuotteet', productItems) : ''
+  ].join('');
+}
+
+function renderRecordToMeasureView(record, options = {}) {
+  if (!record) return;
+
+  currentMeasureHydrating = true;
+
+  plateInput.value = String(record.plate || '').trim().toUpperCase();
+  companyInput.value = record.company || '';
+  makeInput.value = capitalizeWords(record.make || '');
+  modelInput.value = capitalizeWords(record.model || '');
+  ajokilometritInput.value = record.ajokilometrit != null ? String(record.ajokilometrit) : '';
+
+  const typeInputs = document.querySelectorAll('#vehicleType input[type="radio"]');
+  typeInputs.forEach(b=>{ b.checked = (b.value === record.type); });
+  if (record.type) window.__selectedVehicleType = record.type;
+
+  currentConfig = record.config || null;
+  currentPositions = record.positions || (currentConfig ? buildPositions(currentConfig) : null);
+
+  if (!currentConfig || !currentPositions) {
+    alert('Tallenteen konfiguraatio puuttuu');
+    return;
+  }
+
+  const workState = getRecordWorkState(record);
+
+  updateConfigButtonState();
+  setInspectionMode(record.mode || 'measurement');
+  buildMeasurementUI(
+    currentPositions,
+    currentConfig,
+    measureList,
+    record.values,
+    record.notes,
+    record.photos,
+    record.tireSizes,
+    record.tireRims,
+    record.tireMakes,
+    record.tireEts,
+    record.tireChanges,
+    record.tireOldRunkos,
+    record.tireRunkos,
+    record.tireOldMakes,
+    record.tireOldValues,
+    workState.rawWorks,
+    workState.rawWorkRims,
+    record.mode || 'measurement',
+    !!options.readOnly
+  );
+  applyMeasureInteractionState(options);
+  resetMeasureDirty();
+  currentMeasureHydrating = false;
+  showView('view-measure');
+}
+
+function collectMeasurementData() {
+  const nodes = [...measureList.querySelectorAll('.tire-node')]
+    .sort((a,b)=>Number(a.dataset.index)-Number(b.dataset.index));
+
+  const parseMeasurementValue = value => {
+    if (value == null) return null;
+    const raw = String(value).trim().replace(',', '.');
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const values = nodes.map(n=>parseMeasurementValue(n.dataset.value));
+  const notes = nodes.map(n=> (n.dataset.note || '').trim() || null);
+  const photos = nodes.map(n=> n.dataset.photo || null);
+  const tireSizes = nodes.map(n=> (n.dataset.size || '').trim() || null);
+  const tireMakes = nodes.map(n=> {
+    const value = String(n.dataset.make || '').trim();
+    n.dataset.make = value;
+    return value || null;
+  });
+  const tireRims = nodes.map(n=> {
+    const works = String(n.dataset.works || '')
+      .split('|')
+      .map(item=>item.trim())
+      .filter(Boolean);
+    const changedRim = (n.dataset.workRim || '').trim();
+    if (works.includes('Vanteen vaihto') && changedRim) {
+      return changedRim;
+    }
+    return (n.dataset.rim || '').trim() || null;
+  });
+  const tireEts = nodes.map(n=> (n.dataset.et || '').trim() || null);
+  const tireWorkCodes = nodes.map(n=> {
+    const list = String(n.dataset.works || '')
+      .split('|')
+      .map(item=>item.trim())
+      .filter(Boolean);
+    return list.length ? list.join('|') : null;
+  });
+  const tireWorkRims = nodes.map(n=> (n.dataset.workRim || '').trim() || null);
+  const tireWorks = tireWorkCodes.map((rawWorks, index)=>{
+    const list = String(rawWorks || '')
+      .split('|')
+      .map(item=>item.trim())
+      .filter(Boolean);
+    const workRim = tireWorkRims[index];
+    const rimIdx = list.indexOf('Vanteen vaihto');
+    if (rimIdx !== -1 && workRim) {
+      list[rimIdx] = `Vanteen vaihto (${workRim})`;
+    }
+    return list.length ? list.join(', ') : null;
+  });
+  const tireChanges = nodes.map(n=> n.dataset.change === '1');
+  const tireOldValues = nodes.map((n, index)=> {
+    if (!tireChanges[index]) return null;
+    return n.dataset.oldValue != null && n.dataset.oldValue !== '' ? Number(n.dataset.oldValue) : null;
+  });
+  const tireOldMakes = nodes.map((n, index)=> {
+    if (!tireChanges[index]) return null;
+    const value = String(n.dataset.oldMake || '').trim();
+    n.dataset.oldMake = value;
+    return value || null;
+  });
+  const tireOldRunkos = nodes.map((n, index)=> {
+    if (!tireChanges[index]) return null;
+    return (n.dataset.oldRunko || '').trim().toUpperCase() || null;
+  });
+  const tireRunkos = nodes.map(n=> (n.dataset.runko || '').trim().toUpperCase() || null);
+
+  return {
+    values,
+    notes,
+    photos,
+    tireSizes,
+    tireMakes,
+    tireRims,
+    tireEts,
+    tireWorkCodes,
+    tireWorkRims,
+    tireWorks,
+    tireChanges,
+    tireOldValues,
+    tireOldMakes,
+    tireOldRunkos,
+    tireRunkos
+  };
+}
+
+function recomputeWearForPlate(historyRecords, plate) {
+  let previousRecord = null;
+  historyRecords.forEach(record=>{
+    if (!record || record.plate !== plate) return;
+    const values = Array.isArray(record.values) ? record.values : [];
+    record.wear = values.map((value, index)=>{
+      if (!previousRecord || !Array.isArray(previousRecord.values) || previousRecord.values[index] == null || value == null) {
+        return null;
+      }
+      return (Number(value) - Number(previousRecord.values[index])).toFixed(1);
+    });
+    previousRecord = record;
+  });
 }
 
 function prefillVehicleFieldsFromPlate(plateRaw) {
@@ -221,6 +948,7 @@ function prefillVehicleFieldsFromPlate(plateRaw) {
 
   const companyMap = loadMap(StorageKeys.plateCompanyMap());
   if (companyMap[plate]) companyInput.value = companyMap[plate];
+  renderCompanyThresholdSettings(getSelectedCompanySettingsName() || companyInput.value.trim());
 
   const makeModelMap = loadMap(StorageKeys.plateMakeModelMap());
   if (makeModelMap[plate]) {
@@ -237,6 +965,46 @@ function prefillVehicleFieldsFromPlate(plateRaw) {
     typeInputs.forEach(b=>{ b.checked = (b.value === resolvedType); });
     window.__selectedVehicleType = resolvedType;
   }
+
+  renderVehicleStatus();
+}
+
+function getFreshStartStateFromRecord(record) {
+  if (!record) {
+    return {
+      prevValues: null,
+      prevNotes: null,
+      prevPhotos: null,
+      prevSizes: null,
+      prevMakes: null,
+      prevRims: null,
+      prevEts: null,
+      prevRunkos: null,
+      prevWorks: null,
+      prevWorkRims: null,
+      prevChanges: null,
+      prevOldRunkos: null,
+      prevOldMakes: null,
+      prevOldValues: null
+    };
+  }
+
+  return {
+    prevValues: record.values || null,
+    prevNotes: record.notes || null,
+    prevPhotos: record.photos || null,
+    prevSizes: record.tireSizes || null,
+    prevMakes: record.tireMakes || null,
+    prevRims: record.tireRims || null,
+    prevEts: record.tireEts || null,
+    prevRunkos: record.tireRunkos || record.tireNewRunkos || null,
+    prevWorks: null,
+    prevWorkRims: null,
+    prevChanges: null,
+    prevOldRunkos: null,
+    prevOldMakes: null,
+    prevOldValues: null
+  };
 }
 
 // Autocomplete setup
@@ -247,23 +1015,63 @@ setupAutocomplete(
   (plate)=>{
     prefillVehicleFieldsFromPlate(plate);
     updateConfigButtonState();
+    renderVehicleStatus();
   },
   (val)=>val.toUpperCase()
 );
 
-plateInput.addEventListener('input', updateConfigButtonState);
+plateInput.addEventListener('input', ()=>{
+  updateConfigButtonState();
+  renderVehicleStatus();
+});
 plateInput.addEventListener('blur', ()=>{
   plateInput.value = plateInput.value.trim().toUpperCase();
   prefillVehicleFieldsFromPlate(plateInput.value);
   updateConfigButtonState();
+  renderVehicleStatus();
 });
 
 setupAutocomplete(
   companyInput,
   companySuggestions,
   ()=>loadList(StorageKeys.companies()),
-  ()=>{}
+  ()=>{ renderCompanyThresholdSettings(getSelectedCompanySettingsName() || companyInput.value.trim()); }
 );
+
+companyInput.addEventListener('input', ()=>{
+  renderCompanyThresholdSettings(getSelectedCompanySettingsName() || companyInput.value.trim());
+  renderVehicleStatus();
+});
+
+companyInput.addEventListener('blur', ()=>{
+  companyInput.value = companyInput.value.trim();
+  renderCompanyThresholdSettings(getSelectedCompanySettingsName() || companyInput.value.trim());
+  renderVehicleStatus();
+});
+
+companySettingsSelect.addEventListener('change', ()=>{
+  renderCompanyThresholdSettings(getSelectedCompanySettingsName());
+});
+
+btnUseCurrentCompanySettings.onclick = ()=>{
+  const currentCompany = companyInput.value.trim();
+  if (!currentCompany) return alert('Syötä ensin yritys lomakkeelle');
+  renderCompanyThresholdSettings(currentCompany);
+};
+
+companyDangerThresholdInput.addEventListener('input', ()=>{
+  renderCompanyThresholdPreview(getThresholdInputsValue());
+});
+
+companyWarningThresholdInput.addEventListener('input', ()=>{
+  renderCompanyThresholdPreview(getThresholdInputsValue());
+});
+
+btnSaveCompanyThresholds.onclick = ()=> saveCurrentCompanyThresholds(false);
+btnResetCompanyThresholds.onclick = ()=> saveCurrentCompanyThresholds(true);
+btnAddCompanyPositionProduct.onclick = ()=>{
+  companyPositionProducts.appendChild(createCompanyPositionProductRow());
+};
 
 const makeInput = document.getElementById('make');
 const makeSuggestions = document.getElementById('makeSuggestions');
@@ -306,6 +1114,7 @@ btnOpenConfig.onclick = ()=>{
 
   const map = loadMap(StorageKeys.plateCompanyMap());
   if (map[plate]) companyInput.value = map[plate];
+  renderCompanyThresholdSettings(getSelectedCompanySettingsName() || companyInput.value.trim());
 
   const makemodelmap = loadMap(StorageKeys.plateMakeModelMap());
   if (makemodelmap[plate]) {
@@ -316,13 +1125,46 @@ btnOpenConfig.onclick = ()=>{
   const vehicleTypeEl = document.querySelector('#vehicleType input[type="radio"]:checked');
   const vehicleType = vehicleTypeEl ? vehicleTypeEl.value : 'Auto';
   openAxleConfigModal(vehicleType);
+  resetConfigDirty();
 };
 
 // Show view
 function showView(id) {
+  if (!confirmLeaveIfNeeded()) return;
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  if (id === 'view-home' || id === 'view-company-settings') {
+    renderCompanyThresholdSettings(getSelectedCompanySettingsName() || companyInput.value.trim());
+  }
+  if (id === 'view-reports') {
+    renderHistory(historyList, HistoryManager);
+  }
 }
+
+function loadDraftToEditor(draft) {
+  renderRecordToMeasureView(draft, { readOnly: false, historyIndex: null });
+}
+
+window.showView = showView;
+window.setInspectionMode = setInspectionMode;
+window.loadDraftToEditor = loadDraftToEditor;
+window.renderWorkSummaryFromNodes = renderWorkSummaryFromNodes;
+window.recomputeWearForPlate = recomputeWearForPlate;
+window.markMeasureDirty = markMeasureDirty;
+window.refreshHomeUi = ()=>{
+  updateConfigButtonState();
+  renderVehicleStatus();
+};
+window.loadHistoryRecord = (index, editMode = false)=>{
+  const list = HistoryManager.load();
+  const record = list[index];
+  if (!record) return alert('Tallennetta ei löytynyt');
+  if (editMode && !confirm('Avataanko tallennettu raportti muokattavaksi?')) return;
+  renderRecordToMeasureView(record, {
+    readOnly: !editMode,
+    historyIndex: editMode ? index : null
+  });
+};
 
 // Back buttons
 document.querySelectorAll('[data-back]').forEach(btn=> btn.addEventListener('click', ()=> showView('view-home')));
@@ -336,7 +1178,19 @@ axleSelector.onclick = e=>{
   currentConfig = currentConfig || { axles:count, data:[] };
   currentConfig.axles = count;
   buildAxleUI(configAxles, count, currentConfig.data, StorageKeys, formatTyreSize);
+  markConfigDirty();
 };
+
+configAxles.addEventListener('input', ()=> markConfigDirty());
+configAxles.addEventListener('change', ()=> markConfigDirty());
+ajokilometritInput.addEventListener('input', ()=> markMeasureDirty());
+
+window.addEventListener('beforeunload', (e)=>{
+  if ((currentConfigDirty && getCurrentViewId() === 'view-config') || (currentMeasureDirty && !currentMeasureReadOnly && getCurrentViewId() === 'view-measure')) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 
 // Save config
 document.getElementById('btnSaveConfig').onclick = ()=>{
@@ -356,6 +1210,8 @@ document.getElementById('btnSaveConfig').onclick = ()=>{
   currentConfig.data = data;
   ConfigManager.save(plate, currentConfig);
   updateConfigButtonState();
+  resetConfigDirty();
+  renderVehicleStatus();
 
   alert('Konfiguraatio tallennettu');
   showView('view-home');
@@ -450,6 +1306,9 @@ function initAxleConfigModal(vehicleType) {
       closeAxleConfigModal();
       const plate = plateInput.value.trim().toUpperCase();
       ConfigManager.save(plate, currentConfig);
+      updateConfigButtonState();
+      resetConfigDirty();
+      renderVehicleStatus();
       alert('Konfiguraatio tallennettu');
       showView('view-home');
     };
@@ -522,11 +1381,12 @@ function closePresetModal() {
 }
 
 function startInspectionWithPreset(vehicleType) {
-  const plate = plateInput.value.trim().toUpperCase();
-  if (!plate) { closePresetModal(); return alert('Syötä rekisterinumero'); }
-  
-  closePresetModal();
-  plateInput.value = plate;
+  try {
+    const plate = plateInput.value.trim().toUpperCase();
+    if (!plate) { closePresetModal(); return alert('Syötä rekisterinumero'); }
+    
+    closePresetModal();
+    plateInput.value = plate;
 
   const map = loadMap(StorageKeys.plateCompanyMap());
   if (map[plate]) companyInput.value = map[plate];
@@ -539,16 +1399,7 @@ function startInspectionWithPreset(vehicleType) {
   currentPositions = buildPositions(currentConfig);
 
   const last = HistoryManager.lastForPlate(plate);
-  const prevValues = last?last.values:null;
-  const prevNotes = last?last.notes:null;
-  const prevPhotos = last?last.photos:null;
-  const prevSizes = last?last.tireSizes:null;
-  const prevMakes = last?last.tireMakes:null;
-  const prevRims = last?last.tireRims:null;
-  const prevEts = last?last.tireEts:null;
-  const prevChanges = null;
-  const prevOldRunkos = null;
-  const prevRunkos = last?(last.tireRunkos || last.tireNewRunkos || null):null;
+  const freshState = getFreshStartStateFromRecord(last);
   ajokilometritInput.value = (last && last.ajokilometrit != null) ? String(last.ajokilometrit) : '';
 
   const typeInputs = document.querySelectorAll('#vehicleType input[type="radio"]');
@@ -566,16 +1417,25 @@ function startInspectionWithPreset(vehicleType) {
   const checkedNow = document.querySelector('#vehicleType input[type="radio"]:checked');
   if (checkedNow) window.__selectedVehicleType = checkedNow.value;
 
-  setInspectionMode('measurement');
-  buildMeasurementUI(currentPositions, currentConfig, measureList, prevValues, prevNotes, prevPhotos, prevSizes, prevRims, prevMakes, prevEts, prevChanges, prevOldRunkos, prevRunkos, null, null, currentInspectionMode);
-  showView('view-measure');
+    setInspectionMode('measurement');
+    currentMeasureHydrating = true;
+    buildMeasurementUI(currentPositions, currentConfig, measureList, freshState.prevValues, freshState.prevNotes, freshState.prevPhotos, freshState.prevSizes, freshState.prevRims, freshState.prevMakes, freshState.prevEts, freshState.prevChanges, freshState.prevOldRunkos, freshState.prevRunkos, freshState.prevOldMakes, freshState.prevOldValues, freshState.prevWorks, freshState.prevWorkRims, currentInspectionMode, false);
+    applyMeasureInteractionState({ readOnly: false, historyIndex: null });
+    resetMeasureDirty();
+    currentMeasureHydrating = false;
+    showView('view-measure');
+  } catch (error) {
+    currentMeasureHydrating = false;
+    reportRuntimeError('mittauksen aloitus (preset)', error);
+  }
 }
 
 // Start inspection/work
 function startInspection(mode = 'measurement') {
-  const plate = plateInput.value.trim().toUpperCase();
-  if (!plate) return alert('Syötä rekisterinumero');
-  plateInput.value = plate;
+  try {
+    const plate = plateInput.value.trim().toUpperCase();
+    if (!plate) return alert('Syötä rekisterinumero');
+    plateInput.value = plate;
 
   const map = loadMap(StorageKeys.plateCompanyMap());
   if (map[plate]) companyInput.value = map[plate];
@@ -592,17 +1452,10 @@ function startInspection(mode = 'measurement') {
   currentConfig = cfg;
   currentPositions = buildPositions(cfg);
 
+  // A fresh start must use the latest completed record only.
+  // Drafts are resumed explicitly from history via "Jatka".
   const last = HistoryManager.lastForPlate(plate);
-  const prevValues = last?last.values:null;
-  const prevNotes = last?last.notes:null;
-  const prevPhotos = last?last.photos:null;
-  const prevSizes = last?last.tireSizes:null;
-  const prevMakes = last?last.tireMakes:null;
-  const prevRims = last?last.tireRims:null;
-  const prevEts = last?last.tireEts:null;
-  const prevChanges = null;
-  const prevOldRunkos = null;
-  const prevRunkos = last?(last.tireRunkos || last.tireNewRunkos || null):null;
+  const freshState = getFreshStartStateFromRecord(last);
   ajokilometritInput.value = (last && last.ajokilometrit != null) ? String(last.ajokilometrit) : '';
 
   const typeInputs = document.querySelectorAll('#vehicleType input[type="radio"]');
@@ -620,26 +1473,94 @@ function startInspection(mode = 'measurement') {
   const checkedNow = document.querySelector('#vehicleType input[type="radio"]:checked');
   if (checkedNow) window.__selectedVehicleType = checkedNow.value;
 
-  setInspectionMode(mode);
-  buildMeasurementUI(currentPositions, currentConfig, measureList, prevValues, prevNotes, prevPhotos, prevSizes, prevRims, prevMakes, prevEts, prevChanges, prevOldRunkos, prevRunkos, null, null, currentInspectionMode);
-  showView('view-measure');
+    setInspectionMode(mode);
+    currentMeasureHydrating = true;
+    buildMeasurementUI(currentPositions, currentConfig, measureList, freshState.prevValues, freshState.prevNotes, freshState.prevPhotos, freshState.prevSizes, freshState.prevRims, freshState.prevMakes, freshState.prevEts, freshState.prevChanges, freshState.prevOldRunkos, freshState.prevRunkos, freshState.prevOldMakes, freshState.prevOldValues, freshState.prevWorks, freshState.prevWorkRims, currentInspectionMode, false);
+    applyMeasureInteractionState({ readOnly: false, historyIndex: null });
+    resetMeasureDirty();
+    currentMeasureHydrating = false;
+    showView('view-measure');
+  } catch (error) {
+    currentMeasureHydrating = false;
+    reportRuntimeError('mittauksen aloitus', error);
+  }
 }
 
 btnStartInspection.onclick = ()=> startInspection('measurement');
 btnStartWork.onclick = ()=> startInspection('work');
+btnOpenCompanySettings.onclick = ()=> showView('view-company-settings');
+btnOpenReports.onclick = ()=> showView('view-reports');
 
 // Close modals
 presetModal.querySelector('.preset-modal-backdrop').onclick = closePresetModal;
 axleConfigModal.querySelector('.preset-modal-backdrop').onclick = closeAxleConfigModal;
 
-// Save inspection
-btnSaveInspection.onclick = ()=>{
+// Save draft
+btnSaveDraft.onclick = ()=>{
+  if (currentMeasureReadOnly) return;
   const plate = plateInput.value.trim().toUpperCase();
   const company = companyInput.value.trim();
   const ajokilometritRaw = (ajokilometritInput.value || '').trim();
   const ajokilometrit = ajokilometritRaw === '' ? null : ajokilometritRaw;
   const make = capitalizeWords(makeInput.value);
   const model = capitalizeWords(modelInput.value);
+  const selTypeEl = document.querySelector('#vehicleType input[type="radio"]:checked');
+  let type = selTypeEl ? selTypeEl.value : (window.__selectedVehicleType || '');
+
+  if (!plate) return alert('Rekisterinumero puuttuu');
+  if (!currentConfig) return alert('Konfiguraatio puuttuu');
+
+  plateInput.value = plate;
+  const measureData = collectMeasurementData();
+
+  const draft = {
+    plate,
+    company,
+    ajokilometrit,
+    make,
+    model,
+    type,
+    date:new Date().toLocaleString(),
+    values:measureData.values,
+    config:currentConfig,
+    positions:currentPositions,
+    notes:measureData.notes,
+    photos:measureData.photos,
+    tireSizes:measureData.tireSizes,
+    tireMakes:measureData.tireMakes,
+    tireRims:measureData.tireRims,
+    tireEts:measureData.tireEts,
+    tireWorkCodes:measureData.tireWorkCodes,
+    tireWorkRims:measureData.tireWorkRims,
+    tireWorks:measureData.tireWorks,
+    tireChanges:measureData.tireChanges,
+    tireOldValues:measureData.tireOldValues,
+    tireOldMakes:measureData.tireOldMakes,
+    tireOldRunkos:measureData.tireOldRunkos,
+    tireRunkos:measureData.tireRunkos,
+    mode: currentInspectionMode,
+    draft: true
+  };
+
+  DraftManager.add(draft);
+  resetMeasureDirty();
+
+  alert('Luonnos tallennettu');
+  showView('view-home');
+  renderHistory(historyList, HistoryManager);
+  renderVehicleStatus();
+};
+
+// Save inspection
+btnSaveInspection.onclick = ()=>{
+  try {
+    if (currentMeasureReadOnly) return;
+    const plate = plateInput.value.trim().toUpperCase();
+    const company = companyInput.value.trim();
+    const ajokilometritRaw = (ajokilometritInput.value || '').trim();
+    const ajokilometrit = ajokilometritRaw === '' ? null : ajokilometritRaw;
+    const make = capitalizeWords(makeInput.value);
+    const model = capitalizeWords(modelInput.value);
     makeInput.value = make;
     modelInput.value = model;
   const selTypeEl = document.querySelector('#vehicleType input[type="radio"]:checked');
@@ -649,47 +1570,10 @@ btnSaveInspection.onclick = ()=>{
   if (!currentConfig) return alert('Konfiguraatio puuttuu');
 
   plateInput.value = plate;
-
-  const nodes = [...measureList.querySelectorAll('.tire-node')]
-    .sort((a,b)=>Number(a.dataset.index)-Number(b.dataset.index));
-  const values = nodes.map(n=>parseFloat(n.dataset.value || 0));
-  const notes = nodes.map(n=> (n.dataset.note || '').trim() || null);
-  const photos = nodes.map(n=> n.dataset.photo || null);
-  const tireSizes = nodes.map(n=> (n.dataset.size || '').trim() || null);
-  const tireMakes = nodes.map(n=> {
-    const cap = capitalizeWords(n.dataset.make || '');
-    n.dataset.make = cap;
-    return cap || null;
-  });
-  const tireRims = nodes.map(n=> (n.dataset.rim || '').trim() || null);
-  const tireEts = nodes.map(n=> (n.dataset.et || '').trim() || null);
-  const tireWorks = nodes.map(n=> {
-    const list = String(n.dataset.works || '')
-      .split('|')
-      .map(item=>item.trim())
-      .filter(Boolean);
-    const workRim = (n.dataset.workRim || '').trim();
-    const rimIdx = list.indexOf('Vanteen vaihto');
-    if (rimIdx !== -1 && workRim) {
-      list[rimIdx] = `Vanteen vaihto (${workRim})`;
-    }
-    return list.length ? list.join(', ') : null;
-  });
-  const tireChanges = nodes.map(n=> n.dataset.change === '1');
-  const tireOldValues = nodes.map(n=> n.dataset.oldValue != null && n.dataset.oldValue !== '' ? Number(n.dataset.oldValue) : null);
-  const tireOldMakes = nodes.map(n=> {
-    const cap = capitalizeWords(n.dataset.oldMake || '');
-    n.dataset.oldMake = cap;
-    return cap || null;
-  });
-  const tireOldRunkos = nodes.map(n=> (n.dataset.oldRunko || '').trim().toUpperCase() || null);
-  const tireRunkos = nodes.map(n=> (n.dataset.runko || '').trim().toUpperCase() || null);
-
-  const last = HistoryManager.lastForPlate(plate);
-  const wear = values.map((v,i)=>{
-    if (!last || !last.values || last.values[i]==null) return null;
-    return (v-last.values[i]).toFixed(1);
-  });
+  const measureData = collectMeasurementData();
+  const historyRecords = HistoryManager.load();
+  const existingRecord = currentHistoryEditIndex != null ? historyRecords[currentHistoryEditIndex] : null;
+  const timestamp = new Date().toLocaleString();
 
   const record = {
     plate,
@@ -699,26 +1583,42 @@ btnSaveInspection.onclick = ()=>{
     model,
     mode: currentInspectionMode,
     type,
-    date:new Date().toLocaleString(),
-    values,
-    wear,
+    date:existingRecord && existingRecord.date ? existingRecord.date : timestamp,
+    updatedAt:existingRecord ? timestamp : null,
+    values:measureData.values,
+    wear:[],
     config:currentConfig,
     positions:currentPositions,
-    notes,
-    photos,
-    tireSizes,
-    tireMakes,
-    tireRims,
-    tireEts,
-    tireWorks,
-    tireChanges,
-    tireOldValues,
-    tireOldMakes,
-    tireOldRunkos,
-    tireRunkos
+    notes:measureData.notes,
+    photos:measureData.photos,
+    tireSizes:measureData.tireSizes,
+    tireMakes:measureData.tireMakes,
+    tireRims:measureData.tireRims,
+    tireEts:measureData.tireEts,
+    tireWorkCodes:measureData.tireWorkCodes,
+    tireWorkRims:measureData.tireWorkRims,
+    tireWorks:measureData.tireWorks,
+    tireChanges:measureData.tireChanges,
+    tireOldValues:measureData.tireOldValues,
+    tireOldMakes:measureData.tireOldMakes,
+    tireOldRunkos:measureData.tireOldRunkos,
+    tireRunkos:measureData.tireRunkos
   };
 
-  HistoryManager.add(record);
+  const previousPlate = existingRecord ? existingRecord.plate : null;
+  if (currentHistoryEditIndex != null) {
+    historyRecords[currentHistoryEditIndex] = record;
+  } else {
+    historyRecords.push(record);
+  }
+  if (previousPlate && previousPlate !== plate) {
+    recomputeWearForPlate(historyRecords, previousPlate);
+  }
+  recomputeWearForPlate(historyRecords, plate);
+  HistoryManager.save(historyRecords);
+
+  // Remove draft if it exists
+  DraftManager.removeForPlate(plate);
 
   const plates = loadList(StorageKeys.plates());
   if (!plates.includes(plate)) { plates.push(plate); saveList(StorageKeys.plates(), plates); }
@@ -759,7 +1659,7 @@ btnSaveInspection.onclick = ()=>{
     }
   });
 
-  const enteredTyreMakes = [...new Set(tireMakes.filter(Boolean))];
+  const enteredTyreMakes = [...new Set(measureData.tireMakes.filter(Boolean))];
   if (enteredTyreMakes.length) {
     const list = loadList(StorageKeys.tyreMakes());
     let changed = false;
@@ -772,7 +1672,7 @@ btnSaveInspection.onclick = ()=>{
     if (changed) saveList(StorageKeys.tyreMakes(), list);
   }
 
-  const enteredTyreEts = [...new Set(tireEts.filter(Boolean))];
+  const enteredTyreEts = [...new Set(measureData.tireEts.filter(Boolean))];
   if (enteredTyreEts.length) {
     const list = loadList(StorageKeys.etValues());
     let changed = false;
@@ -785,14 +1685,30 @@ btnSaveInspection.onclick = ()=>{
     if (changed) saveList(StorageKeys.etValues(), list);
   }
 
-  alert(currentInspectionMode === 'work' ? 'Työ tallennettu' : 'Mittaus tallennettu');
-  showView('view-home');
-  renderHistory(historyList, HistoryManager);
+    currentHistoryEditIndex = null;
+    currentMeasureReadOnly = false;
+    resetMeasureDirty();
+
+    const successMessage = existingRecord
+      ? (currentInspectionMode === 'work' ? 'Työ päivitetty' : 'Mittaus päivitetty')
+      : (currentInspectionMode === 'work' ? 'Työ tallennettu' : 'Mittaus tallennettu');
+
+    alert(successMessage);
+    showView('view-home');
+    renderHistory(historyList, HistoryManager);
+    renderVehicleStatus();
+  } catch (error) {
+    reportRuntimeError('mittauksen tallennus', error);
+  }
 };
 
 // Initial render
 renderHistory(historyList, HistoryManager);
 updateConfigButtonState();
+updateDirtyStateHints();
+renderVehicleStatus();
+loadImportedProductCatalog();
+renderCompanyThresholdSettings(companyInput.value.trim());
 
 // Vehicle type radio change handler
 (function(){

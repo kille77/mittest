@@ -41,6 +41,15 @@
     font-size: 0.8rem;
     margin-bottom: 2px;
   }
+  .company-settings-link-btn,
+  .company-position-remove-btn,
+  .company-threshold-actions .btn {
+    width:100%;
+    min-width:0;
+  }
+  .company-position-product-row {
+    grid-template-columns:1fr;
+  }
 }
 :root {
   --primary:#0d6efd;
@@ -77,6 +86,259 @@ h2 { font-size:1.2rem; margin:0 0 10px; }
   box-shadow:0 1px 3px rgba(15,23,42,0.08);
 }
 
+.state-hint {
+  margin-bottom:10px;
+  padding:10px 12px;
+  border-radius:10px;
+  background:#fff7ed;
+  border:1px solid #fdba74;
+  color:#9a3412;
+  font-size:0.92rem;
+}
+
+.vehicle-status-empty {
+  color:var(--muted);
+  font-size:0.95rem;
+}
+
+.vehicle-status-grid {
+  display:grid;
+  gap:10px;
+}
+
+.vehicle-status-badges {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.status-badge {
+  display:inline-flex;
+  align-items:center;
+  padding:7px 10px;
+  border-radius:999px;
+  font-size:0.85rem;
+  border:1px solid var(--border);
+}
+
+.status-badge.ok {
+  background:#dcfce7;
+  border-color:#86efac;
+  color:#166534;
+}
+
+.status-badge.warn {
+  background:#fff7ed;
+  border-color:#fdba74;
+  color:#9a3412;
+}
+
+.status-badge.neutral {
+  background:#f8fafc;
+  border-color:#cbd5e1;
+  color:#334155;
+}
+
+.vehicle-status-row {
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+  font-size:0.95rem;
+}
+
+.vehicle-status-row span {
+  color:var(--muted);
+}
+
+.vehicle-status-row strong {
+  text-align:right;
+}
+
+.vehicle-status-help {
+  padding-top:4px;
+  border-top:1px solid var(--border);
+  font-size:0.92rem;
+  color:#1d4ed8;
+}
+
+.company-threshold-empty {
+  color:var(--muted);
+  font-size:0.95rem;
+}
+
+.company-settings-toolbar {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:flex-end;
+  gap:12px;
+  margin-bottom:14px;
+}
+
+.company-settings-select-wrap {
+  flex:1 1 260px;
+}
+
+.company-settings-select-wrap select {
+  margin-bottom:0;
+}
+
+.company-settings-link-btn {
+  width:auto;
+  min-width:200px;
+  margin-top:0;
+}
+
+.company-threshold-panel {
+  display:grid;
+  gap:12px;
+}
+
+.company-threshold-grid {
+  display:grid;
+  gap:12px;
+  grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.company-threshold-field input {
+  margin-bottom:0;
+}
+
+.company-threshold-field textarea {
+  margin-bottom:0;
+  min-height:96px;
+}
+
+.company-threshold-preview {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.threshold-badge {
+  display:inline-flex;
+  align-items:center;
+  padding:8px 12px;
+  border-radius:999px;
+  font-size:0.9rem;
+  border:1px solid transparent;
+}
+
+.threshold-badge-danger {
+  background:#fee2e2;
+  border-color:#fca5a5;
+  color:#991b1b;
+}
+
+.threshold-badge-warning {
+  background:#fef3c7;
+  border-color:#fcd34d;
+  color:#92400e;
+}
+
+.threshold-badge-ok {
+  background:#dcfce7;
+  border-color:#86efac;
+  color:#166534;
+}
+
+.company-threshold-actions {
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.company-threshold-actions .btn {
+  width:auto;
+  min-width:180px;
+  margin-top:0;
+}
+
+.company-position-products-section {
+  display:grid;
+  gap:10px;
+}
+
+.company-position-products-header {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.company-position-products-header h3 {
+  margin:0;
+  font-size:1rem;
+}
+
+.company-position-products {
+  display:grid;
+  gap:10px;
+}
+
+.company-position-product-row {
+  display:grid;
+  grid-template-columns:minmax(180px, 1fr) minmax(220px, 1.4fr) auto;
+  gap:10px;
+  align-items:start;
+}
+
+.company-position-product-row input {
+  margin-bottom:0;
+}
+
+.company-position-remove-btn {
+  width:auto;
+  min-width:110px;
+  margin-top:0;
+}
+
+#workSummaryCard h3 {
+  margin:0 0 10px;
+  font-size:1rem;
+}
+
+.work-summary-section + .work-summary-section {
+  margin-top:12px;
+}
+
+.work-summary-title {
+  font-size:0.82rem;
+  color:var(--muted);
+  margin-bottom:8px;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+}
+
+.work-summary-tags {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.work-summary-tag {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 12px;
+  border-radius:999px;
+  background:#eff6ff;
+  border:1px solid #bfdbfe;
+  color:#1e3a8a;
+  font-size:0.9rem;
+}
+
+.work-summary-tag strong {
+  font-size:0.82rem;
+}
+
+.work-summary-empty {
+  margin:0;
+  color:var(--muted);
+  font-size:0.95rem;
+}
+
 label {
   display:block;
   font-size:0.85rem;
@@ -109,8 +371,16 @@ textarea {
 }
 .btn.primary { background:var(--primary); color:white; }
 .btn.primary:hover { background:var(--primary-dark); }
+.btn.secondary { background:#6b7280; color:white; }
+.btn.secondary:hover { background:#4b5563; }
 .btn.success { background:var(--success); color:white; }
 .btn.danger { background:var(--danger); color:white; }
+.btn:disabled,
+.btn-sm:disabled {
+  opacity:0.55;
+  cursor:not-allowed;
+  filter:saturate(0.5);
+}
 .btn.back {
   width:auto;
   background:none;
@@ -307,9 +577,17 @@ header {
   display:flex;
   gap:8px;
   justify-content:flex-start;
+  align-items:flex-start;
 }
 .tire-group.right {
   justify-content:flex-end;
+}
+.tire-node-stack {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+  max-width:86px;
 }
 .tire-node {
   width:44px;
@@ -326,6 +604,11 @@ header {
   cursor:pointer;
   position:relative;
 }
+.tire-node.no-measurement {
+  background:#ffffff;
+  border-color:#cbd5e1;
+  color:#475569;
+}
 .tire-node .tire-value {
   font-weight:600;
 }
@@ -333,12 +616,18 @@ header {
   font-size:0.7rem;
   color:#d1d5db;
 }
+.tire-node.no-measurement .tire-unit {
+  color:transparent;
+}
 .tire-node .tire-label {
   position:absolute;
   top:4px;
   left:4px;
   font-size:0.65rem;
   color:#e5e7eb;
+}
+.tire-node.no-measurement .tire-label {
+  color:#64748b;
 }
 .tire-node.has-note {
   border-color:#e0b200;
@@ -366,6 +655,17 @@ header {
 }
 .tire-node.has-work {
   box-shadow:0 0 0 2px rgba(37, 99, 235, 0.22);
+}
+.position-work-summary {
+  min-height:28px;
+  font-size:0.68rem;
+  line-height:1.2;
+  color:#334155;
+  text-align:center;
+  word-break:break-word;
+}
+.position-work-summary.is-empty {
+  color:#94a3b8;
 }
 .tire-work-options {
   display:flex;
@@ -457,6 +757,59 @@ header {
   background:var(--primary);
   color:#fff;
 }
+.tire-change-layout {
+  display:grid;
+  gap:12px;
+}
+.tire-change-layout.compare-mode {
+  grid-template-columns:1fr 1fr;
+  align-items:start;
+}
+.tire-change-panel {
+  padding:14px;
+  border-radius:14px;
+  border:1px solid var(--border);
+  background:#ffffff;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.5);
+}
+.tire-panel-header {
+  margin-bottom:12px;
+  padding-bottom:10px;
+  border-bottom:1px solid var(--border);
+}
+.tire-panel-kicker {
+  font-size:0.72rem;
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  font-weight:700;
+  margin-bottom:4px;
+}
+.tire-panel-title {
+  font-size:1rem;
+  font-weight:700;
+  margin-bottom:4px;
+}
+.tire-panel-help {
+  font-size:0.84rem;
+  color:var(--muted);
+  line-height:1.35;
+}
+.tire-panel-header-old .tire-panel-kicker,
+.tire-panel-header-old .tire-panel-title {
+  color:#9a3412;
+}
+.tire-panel-header-new .tire-panel-kicker,
+.tire-panel-header-new .tire-panel-title {
+  color:#1d4ed8;
+}
+.tire-change-panel-old {
+  background:linear-gradient(180deg,#fff7ed 0%, #ffffff 100%);
+  border-color:#fdba74;
+}
+.tire-change-panel-new {
+  background:linear-gradient(180deg,#eff6ff 0%, #ffffff 100%);
+  border-color:#93c5fd;
+}
 .tire-old-field {
   width:100%;
   padding:8px;
@@ -479,6 +832,11 @@ header {
 @media (max-width:600px) {
   .tire-modal-grid { grid-template-columns:repeat(4, 1fr); }
   .tire-node { width:38px; height:64px; }
+  .tire-node-stack { max-width:74px; }
+  .position-work-summary { font-size:0.62rem; min-height:24px; }
+  .vehicle-status-row { flex-direction:column; align-items:flex-start; }
+  .vehicle-status-row strong { text-align:left; }
+  .tire-change-layout.compare-mode { grid-template-columns:1fr; }
 }
 
 .note-box {
@@ -525,6 +883,27 @@ header {
   padding:8px 10px;
   cursor:pointer;
   font-size:0.95rem;
+}
+.autocomplete-suggestion-title {
+  font-weight:600;
+  color:var(--text);
+  line-height:1.3;
+}
+.autocomplete-suggestion-subtitle {
+  margin-top:2px;
+  font-size:0.78rem;
+  color:var(--muted);
+  line-height:1.3;
+}
+.autocomplete-spec.is-match {
+  font-weight:700;
+  color:var(--text);
+  background:#e8f1ff;
+  border-radius:4px;
+  padding:0 3px;
+}
+.autocomplete-spec-separator {
+  color:#94a3b8;
 }
 .autocomplete-suggestion:hover {
   background:#f3f4f6;

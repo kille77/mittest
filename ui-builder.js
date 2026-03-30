@@ -49,11 +49,15 @@ function buildAxleUI(containerEl, count, existing=[], StorageKeysRef, formatTyre
 
     containerEl.appendChild(card);
 
-    setupTyreAutocomplete(card.querySelector(".axle-size"), StorageKeysRef.tyreSizes(), formatTyreSizeFn);
-    setupTyreAutocomplete(card.querySelector(".axle-make"), StorageKeysRef.tyreMakes());
-    setupTyreAutocomplete(card.querySelector(".axle-et"), StorageKeysRef.etValues());
+    const axleSizeInput = card.querySelector(".axle-size");
+    const axleMakeInput = card.querySelector(".axle-make");
+    const axleEtInput = card.querySelector(".axle-et");
 
-    card.querySelector(".axle-size").addEventListener("blur", e=>{ e.target.value = formatTyreSizeFn(e.target.value); });
+    setupTyreAutocomplete(axleSizeInput, StorageKeysRef.tyreSizes(), formatTyreSizeFn);
+    window.setupTyreProductAutocomplete(axleMakeInput, ()=>axleSizeInput.value);
+    setupTyreAutocomplete(axleEtInput, StorageKeysRef.etValues());
+
+    axleSizeInput.addEventListener("blur", e=>{ e.target.value = formatTyreSizeFn(e.target.value); });
 
     const icon = card.querySelector(".settings-icon");
     const menu = card.querySelector(".settings-menu");
@@ -114,11 +118,71 @@ function buildPositions(config) {
   return [...left, ...right];
 }
 
-function buildMeasurementUI(positions, config, containerEl, previous=null, prevNotes=null, prevPhotos=null, prevSizes=null, prevRims=null, prevMakes=null, prevEts=null, prevChanges=null, prevOldRunkos=null, prevRunkos=null, prevOldMakes=null, prevOldValues=null, viewMode='measurement') {
+function buildMeasurementUI(positions, config, containerEl, previous=null, prevNotes=null, prevPhotos=null, prevSizes=null, prevRims=null, prevMakes=null, prevEts=null, prevChanges=null, prevOldRunkos=null, prevRunkos=null, prevOldMakes=null, prevOldValues=null, prevWorks=null, prevWorkRims=null, viewMode='measurement', readOnly=false) {
   containerEl.innerHTML = "";
   const isWorkMode = viewMode === 'work';
+  const isReadOnly = !!readOnly;
+  const normalizeTyreMake = value => String(value || '').trim();
+  const normalizeRimProduct = value => String(value || '').trim();
+  const normalizeEtValue = value => String(value || '').trim().replace(',', '.');
 
-  const values = positions.map((_,i)=> previous && previous[i]!=null ? Number(previous[i]) : 10);
+  function getEtFromProductName(value) {
+    const match = String(value || '').match(/ET\s*([0-9]+(?:[.,][0-9]+)?)/i);
+    return match ? normalizeEtValue(match[1]) : '';
+  }
+
+  function getRimSearchContext() {
+    const preferredItems = new Set();
+
+    if (currentNode) {
+      [currentNode.dataset.workRim, currentNode.dataset.oldRim, currentNode.dataset.rim].forEach(value => {
+        const normalized = normalizeRimProduct(value || '');
+        if (normalized) preferredItems.add(normalized);
+      });
+
+      const axleId = String(currentNode.dataset.axle || '');
+      if (axleId) {
+        containerEl.querySelectorAll('.tire-node').forEach(node => {
+          if (String(node.dataset.axle || '') !== axleId) return;
+          [node.dataset.workRim, node.dataset.rim, node.dataset.oldRim].forEach(value => {
+            const normalized = normalizeRimProduct(value || '');
+            if (normalized) preferredItems.add(normalized);
+          });
+        });
+      }
+    }
+
+    const currentEt = normalizeEtValue(
+      (workRimEtInput && workRimEtInput.value) ||
+      (currentNode && (currentNode.dataset.oldEt || currentNode.dataset.et)) ||
+      ''
+    );
+
+    const currentTyreSize = formatTyreSize(
+      (tireSize && tireSize.value) ||
+      (currentNode && (currentNode.dataset.oldSize || currentNode.dataset.size)) ||
+      ''
+    );
+
+    return {
+      currentEt,
+      currentTyreSize,
+      preferredItems: [...preferredItems]
+    };
+  }
+
+  function parseMeasurementValue(value) {
+    if (value == null) return null;
+    const raw = String(value).trim().replace(',', '.');
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  const values = positions.map((_,i)=>{
+    const previousValue = previous && previous[i] != null ? previous[i] : null;
+    return parseMeasurementValue(previousValue);
+  });
   const notes = positions.map((_,i)=> prevNotes && prevNotes[i] ? String(prevNotes[i]) : "");
   const photos = positions.map((_,i)=> prevPhotos && prevPhotos[i] ? String(prevPhotos[i]) : null);
   const WORK_OPTIONS = ['Paikkaus', 'Tasapainotus', 'Venttiilin vaihto', 'Vannetyö', 'Allevaihto'];
@@ -152,38 +216,50 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
           <button class="btn-sm tire-change-tab-btn active" data-change-tab="new" type="button">Uusi rengas</button>
           <button class="btn-sm tire-change-tab-btn" data-change-tab="old" type="button">Vanha rengas</button>
         </div>
-        <div class="tire-change-panel tire-change-panel-new">
-          <label>Rengaskoko</label>
-          <input type="text" class="tire-size-input" placeholder="200/55R16" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
-          <label>Rengasmerkki malli</label>
-          <input type="text" class="tire-make-input" placeholder="Esim. Michelin" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
-          <label>Vannetyyppi</label>
-          <div class="rim-options tire-rim-wrap" style="margin-bottom:8px;">
-            <label class="rim-option">
-              <input type="checkbox" class="tire-rim-check" value="Alumiini">
-              Alumiini
-            </label>
-            <label class="rim-option">
-              <input type="checkbox" class="tire-rim-check" value="Teräs">
-              Teräs
-            </label>
+        <div class="tire-change-layout">
+          <div class="tire-change-panel tire-change-panel-old" style="display:none;">
+            <div class="tire-panel-header tire-panel-header-old">
+              <div class="tire-panel-kicker">Poistuva rengas</div>
+              <div class="tire-panel-title">Vanha rengas</div>
+              <div class="tire-panel-help">Tämä ikkuna näyttää renkaan tiedot ennen vaihtoa.</div>
+            </div>
+            <label>Vanha koko</label>
+            <div class="tire-old-field old-size">-</div>
+            <label>Vanhan renkaan mm</label>
+            <div class="tire-old-field old-mm">-</div>
+            <label>Vanha merkki/malli</label>
+            <div class="tire-old-field old-make">-</div>
+            <label>Vanha runkonumero</label>
+            <div class="tire-old-field old-runko">-</div>
           </div>
-          <label class="tire-et-label">ET</label>
-          <input type="text" class="tire-et-input" placeholder="Esim. 120" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
-          <label>Rengas runkonumero</label>
-          <input type="text" class="tire-runko-input" placeholder="Esim. NEW123" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
-          <label class="tire-new-mm-label" style="display:none;">Uuden renkaan mm</label>
-          <input type="number" min="0" step="0.1" class="tire-new-mm-input" placeholder="Esim. 16" style="display:none;width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
-        </div>
-        <div class="tire-change-panel tire-change-panel-old" style="display:none;">
-          <label>Vanha koko</label>
-          <div class="tire-old-field old-size">-</div>
-          <label>Vanhan renkaan mm</label>
-          <div class="tire-old-field old-mm">-</div>
-          <label>Vanha merkki/malli</label>
-          <div class="tire-old-field old-make">-</div>
-          <label>Vanha runkonumero</label>
-          <div class="tire-old-field old-runko">-</div>
+          <div class="tire-change-panel tire-change-panel-new">
+            <div class="tire-panel-header tire-panel-header-new">
+              <div class="tire-panel-kicker">Asennettava rengas</div>
+              <div class="tire-panel-title">Uusi rengas</div>
+              <div class="tire-panel-help">Syötä tähän uuteen renkaaseen liittyvät tiedot.</div>
+            </div>
+            <label>Rengaskoko</label>
+            <input type="text" class="tire-size-input" placeholder="200/55R16" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
+            <label>Rengasmerkki malli</label>
+            <input type="text" class="tire-make-input" placeholder="Esim. Michelin" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
+            <label>Vannetyyppi</label>
+            <div class="rim-options tire-rim-wrap" style="margin-bottom:8px;">
+              <label class="rim-option">
+                <input type="checkbox" class="tire-rim-check" value="Alumiini">
+                Alumiini
+              </label>
+              <label class="rim-option">
+                <input type="checkbox" class="tire-rim-check" value="Teräs">
+                Teräs
+              </label>
+            </div>
+            <label class="tire-et-label">ET</label>
+            <input type="text" class="tire-et-input" placeholder="Esim. 120" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
+            <label>Rengas runkonumero</label>
+            <input type="text" class="tire-runko-input" placeholder="Esim. NEW123" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
+            <label class="tire-new-mm-label" style="display:none;">Uuden renkaan mm</label>
+            <input type="number" min="0" step="0.1" class="tire-new-mm-input" placeholder="Esim. 16" style="display:none;width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
+          </div>
         </div>
         <label>Positio työt</label>
         <div class="tire-work-options" style="margin-bottom:8px;">
@@ -195,26 +271,29 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
           `).join('')}
         </div>
         <div class="work-rim-change-wrap" style="display:none; margin-bottom:8px;">
-          <div class="tire-change-tabs rim-change-tabs" style="margin-bottom:8px;">
-            <button class="btn-sm tire-change-tab-btn rim-change-tab-btn active" data-rim-tab="new" type="button">Uusi vanne</button>
-            <button class="btn-sm tire-change-tab-btn rim-change-tab-btn" data-rim-tab="old" type="button">Vanha vanne</button>
-          </div>
-          <div class="rim-change-panel rim-change-panel-new">
-            <label>Uusi vanne</label>
-            <div class="rim-options" style="margin-top:6px;">
-              <label class="rim-option">
-                <input type="checkbox" class="work-rim-check" value="Alumiini">
-                Alumiini
-              </label>
-              <label class="rim-option">
-                <input type="checkbox" class="work-rim-check" value="Teräs">
-                Teräs
-              </label>
+          <div class="tire-change-layout rim-change-layout compare-mode">
+            <div class="tire-change-panel tire-change-panel-old rim-change-panel-old">
+              <div class="tire-panel-header tire-panel-header-old">
+                <div class="tire-panel-kicker">Poistuva vanne</div>
+                <div class="tire-panel-title">Vanha vanne</div>
+                <div class="tire-panel-help">Tässä näkyvät vanteen tiedot ennen vaihtoa.</div>
+              </div>
+              <label>Vanha vanne</label>
+              <div class="tire-old-field old-rim">-</div>
+              <label>Vanha ET</label>
+              <div class="tire-old-field old-rim-et">-</div>
             </div>
-          </div>
-          <div class="rim-change-panel rim-change-panel-old" style="display:none;">
-            <label>Vanha vanne</label>
-            <div class="tire-old-field old-rim">-</div>
+            <div class="tire-change-panel tire-change-panel-new rim-change-panel-new">
+              <div class="tire-panel-header tire-panel-header-new">
+                <div class="tire-panel-kicker">Asennettava vanne</div>
+                <div class="tire-panel-title">Uusi vanne</div>
+                <div class="tire-panel-help">Hae vannetuote katalogista. Vanteet haetaan H/-kategoriasta.</div>
+              </div>
+              <label>Vannetuote</label>
+              <input type="text" class="work-rim-product-input" placeholder="Esim. 9.00x22.5 Alcoa Dura-Bright 10x26mm ET156" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
+              <label>Uusi ET</label>
+              <input type="text" class="work-rim-et-input" placeholder="Esim. 156" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ddd;border-radius:6px;">
+            </div>
           </div>
         </div>
       </div>
@@ -222,8 +301,8 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
         <button class="btn-sm copy-axle-btn" type="button">Kopioi koko akselille</button>
         <button class="btn-sm copy-size-all-btn" type="button">Kopioi koko kaikille</button>
         <button class="btn-sm copy-rim-all-btn" type="button">Kopioi vannetyyppi kaikille</button>
-        <button class="btn-sm change-rim-btn" type="button">Vaihda vanne</button>
-        <button class="btn-sm change-tire-btn" type="button">Vaihda rengas</button>
+        ${isWorkMode ? '<button class="btn-sm change-rim-btn" type="button">Vaihda vanne</button>' : ''}
+        ${isWorkMode ? '<button class="btn-sm change-tire-btn" type="button">Vaihda rengas</button>' : ''}
         <button class="btn-sm note-toggle" type="button">Huomio</button>
         <button class="btn-sm photo-btn" type="button">Kamera</button>
         <input type="file" accept="image/*" capture="environment" class="photo-input" style="display:none">
@@ -239,9 +318,16 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
   const modalTitle = modal.querySelector('.tire-modal-title');
   const modalGrid = modal.querySelector('.tire-modal-grid');
   const changeTabsWrap = modal.querySelector('.tire-change-tabs');
+  const changeLayout = modal.querySelector('.tire-change-layout');
   const changeTabBtns = [...modal.querySelectorAll('.tire-change-tab-btn')];
   const changePanelNew = modal.querySelector('.tire-change-panel-new');
   const changePanelOld = modal.querySelector('.tire-change-panel-old');
+  const newPanelKicker = modal.querySelector('.tire-panel-header-new .tire-panel-kicker');
+  const newPanelTitle = modal.querySelector('.tire-panel-header-new .tire-panel-title');
+  const newPanelHelp = modal.querySelector('.tire-panel-header-new .tire-panel-help');
+  const oldPanelKicker = modal.querySelector('.tire-panel-header-old .tire-panel-kicker');
+  const oldPanelTitle = modal.querySelector('.tire-panel-header-old .tire-panel-title');
+  const oldPanelHelp = modal.querySelector('.tire-panel-header-old .tire-panel-help');
   const oldSizeEl = modal.querySelector('.old-size');
   const oldMmEl = modal.querySelector('.old-mm');
   const oldMakeEl = modal.querySelector('.old-make');
@@ -268,11 +354,13 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
   const photoPreview = modal.querySelector('.photo-preview');
   const tireWorkChecks = [...modal.querySelectorAll('.tire-work-check')];
   const workRimChangeWrap = modal.querySelector('.work-rim-change-wrap');
-  const rimChangeTabBtns = [...modal.querySelectorAll('.rim-change-tab-btn')];
+  const rimChangeLayout = modal.querySelector('.rim-change-layout');
   const rimChangePanelNew = modal.querySelector('.rim-change-panel-new');
   const rimChangePanelOld = modal.querySelector('.rim-change-panel-old');
   const oldRimEl = modal.querySelector('.old-rim');
-  const workRimChecks = [...modal.querySelectorAll('.work-rim-check')];
+  const oldRimEtEl = modal.querySelector('.old-rim-et');
+  const workRimProductInput = modal.querySelector('.work-rim-product-input');
+  const workRimEtInput = modal.querySelector('.work-rim-et-input');
   const changeTireWrapBtn = modal.querySelector('.change-tire-btn');
   const workOptionsWrap = modal.querySelector('.tire-work-options');
   const copySizeWrapBtn = modal.querySelector('.copy-size-all-btn');
@@ -287,14 +375,40 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
       : 'Kopioi koko akselille';
   }
 
+  function updateTirePanelHeaders(hasChange) {
+    if (!isWorkMode) {
+      if (newPanelKicker) newPanelKicker.textContent = 'Renkaan tiedot';
+      if (newPanelTitle) newPanelTitle.textContent = 'Rengas';
+      if (newPanelHelp) newPanelHelp.textContent = 'Muokkaa tähän renkaan tiedot.';
+      return;
+    }
+
+    if (hasChange) {
+      if (oldPanelKicker) oldPanelKicker.textContent = 'Poistuva rengas';
+      if (oldPanelTitle) oldPanelTitle.textContent = 'Vanha rengas';
+      if (oldPanelHelp) oldPanelHelp.textContent = 'Tämä ikkuna näyttää renkaan tiedot ennen vaihtoa.';
+      if (newPanelKicker) newPanelKicker.textContent = 'Asennettava rengas';
+      if (newPanelTitle) newPanelTitle.textContent = 'Uusi rengas';
+      if (newPanelHelp) newPanelHelp.textContent = 'Syötä tähän uuteen renkaaseen liittyvät tiedot.';
+      return;
+    }
+
+    if (newPanelKicker) newPanelKicker.textContent = 'Nykyinen rengas';
+    if (newPanelTitle) newPanelTitle.textContent = 'Vanha rengas';
+    if (newPanelHelp) newPanelHelp.textContent = 'Tässä näkyvät position nykyisen renkaan tiedot. Aktivoi Vaihda rengas, jos asennat uuden renkaan.';
+  }
+
   function setChangeTab(tab) {
     const active = tab === 'old' ? 'old' : 'new';
+    const hasChange = !!currentNode && currentNode.dataset.change === '1';
+    const compareMode = isWorkMode && hasChange;
+    updateTirePanelHeaders(hasChange);
     changeTabBtns.forEach(btn=>{
       btn.classList.toggle('active', btn.dataset.changeTab === active);
     });
-    if (changePanelNew) changePanelNew.style.display = active === 'new' ? 'block' : 'none';
-    if (changePanelOld) changePanelOld.style.display = active === 'old' ? 'block' : 'none';
-    const hasChange = !!currentNode && currentNode.dataset.change === '1';
+    if (changeLayout) changeLayout.classList.toggle('compare-mode', compareMode);
+    if (changePanelNew) changePanelNew.style.display = compareMode || active === 'new' ? 'block' : 'none';
+    if (changePanelOld) changePanelOld.style.display = compareMode ? 'block' : (active === 'old' ? 'block' : 'none');
     const showMmField = isWorkMode && ((hasChange && active === 'new') || !hasChange);
     if (tireNewMmLabel) {
       tireNewMmLabel.textContent = hasChange ? 'Uuden renkaan mm' : 'Vanhan renkaan mm';
@@ -309,7 +423,7 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
   function updateChangeTabs(node) {
     if (!changeTabsWrap) return;
     const hasChange = !!node && node.dataset.change === '1';
-    changeTabsWrap.style.display = (isWorkMode && hasChange) ? 'flex' : 'none';
+    changeTabsWrap.style.display = 'none';
     if (!isWorkMode) {
       setChangeTab('new');
       return;
@@ -327,7 +441,7 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     if (oldMakeEl) oldMakeEl.textContent = oldMakeRaw || '-';
     if (oldRunkoEl) oldRunkoEl.textContent = oldRunkoRaw || '-';
 
-    if (!hasChange) setChangeTab('new');
+    setChangeTab('new');
   }
 
   changeTabBtns.forEach(btn=>{
@@ -393,49 +507,57 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     if (workRimChangeWrap) {
       workRimChangeWrap.style.display = (isWorkMode && active) ? 'block' : 'none';
     }
+    if (rimChangeLayout) rimChangeLayout.classList.toggle('compare-mode', active);
     if (!active) setRimChangeTab('new');
   }
 
   function getSelectedWorkRim() {
-    const checked = workRimChecks.find(ch=>ch.checked);
-    return checked ? checked.value : '';
+    return normalizeRimProduct(workRimProductInput ? workRimProductInput.value : '');
   }
 
   function setSelectedWorkRim(value) {
-    const v = String(value || '').trim();
-    workRimChecks.forEach(ch=>{ ch.checked = (ch.value === v); });
+    const v = normalizeRimProduct(value || '');
+    if (workRimProductInput) workRimProductInput.value = v;
   }
 
   function setRimChangeTab(tab) {
     const active = tab === 'old' ? 'old' : 'new';
-    rimChangeTabBtns.forEach(btn=>{
-      btn.classList.toggle('active', btn.dataset.rimTab === active);
-    });
-    if (rimChangePanelNew) rimChangePanelNew.style.display = active === 'new' ? 'block' : 'none';
-    if (rimChangePanelOld) rimChangePanelOld.style.display = active === 'old' ? 'block' : 'none';
+    const compareMode = !!currentNode && getWorksSet(currentNode).has('Vanteen vaihto');
+    if (rimChangeLayout) rimChangeLayout.classList.toggle('compare-mode', compareMode);
+    if (rimChangePanelNew) rimChangePanelNew.style.display = compareMode || active === 'new' ? 'block' : 'none';
+    if (rimChangePanelOld) rimChangePanelOld.style.display = compareMode || active === 'old' ? 'block' : 'none';
   }
 
   function updateRimChangeDetails(node) {
     const oldRim = node ? (node.dataset.oldRim || node.dataset.rim || '') : '';
+    const oldEt = node ? (node.dataset.oldEt || node.dataset.et || '') : '';
     if (oldRimEl) oldRimEl.textContent = oldRim || '-';
+    if (oldRimEtEl) oldRimEtEl.textContent = oldEt || '-';
+    if (workRimEtInput) workRimEtInput.value = node ? normalizeEtValue(node.dataset.et || '') : '';
   }
 
-  rimChangeTabBtns.forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      if (!isWorkMode || !currentNode || !getWorksSet(currentNode).has('Vanteen vaihto')) return;
-      setRimChangeTab(btn.dataset.rimTab || 'new');
-    });
-  });
-
-  setupTyreAutocomplete(tireMake, window.StorageKeys.tyreMakes(), null, (item)=>{
+  window.setupTyreProductAutocomplete(tireMake, ()=>tireSize.value, (item)=>{
     if (!currentNode) return;
-    const val = capitalizeWords(item || '');
+    const val = normalizeTyreMake(item || '');
     tireMake.value = val;
     currentNode.dataset.make = val;
+    updateTireNode(currentNode);
   });
   setupTyreAutocomplete(tireEt, window.StorageKeys.etValues(), null, (item)=>{
     if (!currentNode) return;
     currentNode.dataset.et = (item || '').trim();
+  });
+  window.setupRimProductAutocomplete(workRimProductInput, ()=>getRimSearchContext(), (item)=>{
+    if (!currentNode) return;
+    const value = normalizeRimProduct(item || '');
+    const etValue = getEtFromProductName(value);
+    workRimProductInput.value = value;
+    currentNode.dataset.workRim = value;
+    if (workRimEtInput && etValue) {
+      workRimEtInput.value = etValue;
+      currentNode.dataset.et = etValue;
+    }
+    updateTireNode(currentNode);
   });
 
   function getSelectedRim() {
@@ -449,19 +571,40 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
   }
 
   function updateTireNode(node) {
-    const val = Number(node.dataset.value || 0);
+    const val = parseMeasurementValue(node.dataset.value);
+    const hasMeasurement = val != null;
     const note = node.dataset.note || "";
     const photo = node.dataset.photo || "";
     const change = node.dataset.change === '1';
     const works = parseWorkList(node.dataset.works || '');
-    node.querySelector('.tire-value').textContent = formatMmValue(val);
+    const summaryEl = node.parentElement ? node.parentElement.querySelector('.position-work-summary') : null;
+    const summaryItems = works.map(work=>{
+      if (work === 'Vanteen vaihto' && (node.dataset.workRim || '').trim()) {
+        return `Vanteen vaihto (${node.dataset.workRim.trim()})`;
+      }
+      return work;
+    });
+    node.querySelector('.tire-value').textContent = hasMeasurement ? formatMmValue(val) : '';
+    node.querySelector('.tire-unit').textContent = hasMeasurement ? 'mm' : '';
     node.classList.toggle('has-note', !!note);
     node.classList.toggle('has-photo', !!photo);
     node.classList.toggle('has-change', change);
     node.classList.toggle('has-work', works.length > 0);
+    node.classList.toggle('no-measurement', !hasMeasurement);
+    if (window.markMeasureDirty) window.markMeasureDirty();
+    if (summaryEl) {
+      summaryEl.textContent = summaryItems.length ? summaryItems.join(', ') : 'Ei töitä';
+      summaryEl.style.display = isWorkMode ? '' : 'none';
+      summaryEl.classList.toggle('is-empty', summaryItems.length === 0);
+    }
+    if (window.renderWorkSummaryFromNodes) window.renderWorkSummaryFromNodes();
   }
 
   function updateChangeButton(node) {
+    if (!changeTireBtn) {
+      updateChangeTabs(node);
+      return;
+    }
     const active = !!node && node.dataset.change === '1';
     changeTireBtn.classList.toggle('change-tire-active', active);
     changeTireBtn.textContent = active ? 'Peru vaihto' : 'Vaihda rengas';
@@ -469,10 +612,10 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
   }
 
   function setActiveValue(val) {
-    const target = Number(val);
+    const target = parseMeasurementValue(val);
     modalGrid.querySelectorAll('.value-btn').forEach(b=>{
       const btnVal = Number(b.dataset.value);
-      const isActive = Math.abs(btnVal - target) < 0.001;
+      const isActive = target != null && Math.abs(btnVal - target) < 0.001;
       b.classList.toggle('active', isActive);
     });
   }
@@ -504,6 +647,7 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     const works = parseWorkList(node.dataset.works || '');
     setSelectedWorks(works);
     setSelectedWorkRim(node.dataset.workRim || '');
+    if (workRimEtInput) workRimEtInput.value = normalizeEtValue(node.dataset.et || '');
 
     const note = node.dataset.note || "";
     noteInput.value = note;
@@ -519,7 +663,7 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
       photoPreview.style.display = 'none';
     }
 
-    setActiveValue(Number(node.dataset.value || 0));
+    setActiveValue(node.dataset.value);
     updateRimChangeButton(node);
     updateChangeButton(node);
     if (isWorkMode && node.dataset.change === '1') {
@@ -579,36 +723,38 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
       const sourceRimChangeActive = getWorksSet(currentNode).has('Vanteen vaihto');
       const payload = {
         size: formatTyreSize((currentNode.dataset.size || '').trim()),
-        make: capitalizeWords(currentNode.dataset.make || ''),
+        make: normalizeTyreMake(currentNode.dataset.make || ''),
         value: currentNode.dataset.value || '',
         runko: (currentNode.dataset.runko || '').trim().toUpperCase(),
         change: sourceChangeActive,
         works: currentNode.dataset.works || '',
-        workRim: currentNode.dataset.workRim || ''
+        workRim: currentNode.dataset.workRim || '',
+        et: normalizeEtValue(currentNode.dataset.et || '')
       };
 
       if (!payload.size) payload.size = formatTyreSize((tireSize.value || '').trim());
       if (!payload.size) payload.size = formatTyreSize((currentNode.dataset.oldSize || '').trim());
-      if (!payload.make) payload.make = capitalizeWords(tireMake.value || '');
+      if (!payload.make) payload.make = normalizeTyreMake(tireMake.value || '');
 
       containerEl.querySelectorAll('.tire-node').forEach(node=>{
         if (node.dataset.axle !== axleId) return;
 
         if (payload.change && node !== currentNode && node.dataset.change !== '1') {
           const existingSize = formatTyreSize((node.dataset.size || '').trim());
-          const existingMake = capitalizeWords(node.dataset.make || '');
+          const existingMake = normalizeTyreMake(node.dataset.make || '');
           const existingRunko = (node.dataset.runko || '').trim().toUpperCase();
-          const existingValue = Number(node.dataset.value || 0);
+          const existingValue = parseMeasurementValue(node.dataset.value);
 
           if (!node.dataset.oldSize && existingSize) node.dataset.oldSize = existingSize;
           if (!node.dataset.oldMake && existingMake) node.dataset.oldMake = existingMake;
           if (!node.dataset.oldRunko && existingRunko) node.dataset.oldRunko = existingRunko;
-          if (node.dataset.oldValue == null || node.dataset.oldValue === '') node.dataset.oldValue = String(existingValue);
+          if ((node.dataset.oldValue == null || node.dataset.oldValue === '') && existingValue != null) node.dataset.oldValue = String(existingValue);
         }
 
         if (sourceRimChangeActive && node !== currentNode && !getWorksSet(node).has('Vanteen vaihto')) {
           const existingRim = (node.dataset.rim || '').trim();
           if (!node.dataset.oldRim && existingRim) node.dataset.oldRim = existingRim;
+          if (!node.dataset.oldEt && (node.dataset.et || '').trim()) node.dataset.oldEt = normalizeEtValue(node.dataset.et || '');
         }
 
         node.dataset.size = payload.size;
@@ -618,6 +764,7 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
         node.dataset.change = payload.change ? '1' : '';
         node.dataset.works = payload.works;
         node.dataset.workRim = payload.workRim;
+        if (sourceRimChangeActive && payload.workRim) node.dataset.et = payload.et;
         updateTireNode(node);
       });
 
@@ -633,13 +780,13 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     const payload = {
       value: currentNode.dataset.value || '',
       size: formatTyreSize((currentNode.dataset.size || '').trim()),
-      make: capitalizeWords(currentNode.dataset.make || ''),
+      make: normalizeTyreMake(currentNode.dataset.make || ''),
       rim: currentNode.dataset.rim || '',
       et: (currentNode.dataset.et || '').trim()
     };
 
     if (!payload.size) payload.size = formatTyreSize((tireSize.value || '').trim());
-    if (!payload.make) payload.make = capitalizeWords(tireMake.value || '');
+    if (!payload.make) payload.make = normalizeTyreMake(tireMake.value || '');
     if (!payload.rim) payload.rim = getSelectedRim();
     if (!payload.et) payload.et = (tireEt.value || '').trim();
 
@@ -653,34 +800,37 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
       updateTireNode(node);
     });
 
-    setActiveValue(Number(payload.value || 0));
+    setActiveValue(payload.value);
   };
 
-  copyRimAllBtn.onclick = ()=>{
-    if (!currentNode) return;
-    const val = getSelectedRim();
-    if (!val) return alert('Vannetyyppi puuttuu');
-    containerEl.querySelectorAll('.tire-node').forEach(node=>{
-      node.dataset.rim = val;
-    });
-  };
+  if (copyRimAllBtn) {
+    copyRimAllBtn.onclick = ()=>{
+      if (!currentNode) return;
+      const val = getSelectedRim();
+      if (!val) return alert('Vannetyyppi puuttuu');
+      containerEl.querySelectorAll('.tire-node').forEach(node=>{
+        node.dataset.rim = val;
+      });
+    };
+  }
 
-  changeTireBtn.onclick = ()=>{
+  if (changeTireBtn) {
+    changeTireBtn.onclick = ()=>{
     if (!currentNode) return;
 
     if (currentNode.dataset.change === '1') {
       const restoredSize = formatTyreSize((currentNode.dataset.oldSize || currentNode.dataset.size || '').trim());
-      const restoredMake = capitalizeWords(currentNode.dataset.oldMake || '');
+      const restoredMake = normalizeTyreMake(currentNode.dataset.oldMake || '');
       const restoredRunko = (currentNode.dataset.oldRunko || '').trim().toUpperCase();
       const restoredValue = (currentNode.dataset.oldValue != null && currentNode.dataset.oldValue !== '')
-        ? Number(currentNode.dataset.oldValue)
-        : Number(currentNode.dataset.value || 0);
+        ? parseMeasurementValue(currentNode.dataset.oldValue)
+        : parseMeasurementValue(currentNode.dataset.value);
 
       currentNode.dataset.change = '';
       currentNode.dataset.size = restoredSize;
       currentNode.dataset.make = restoredMake;
       currentNode.dataset.runko = restoredRunko;
-      currentNode.dataset.value = String(restoredValue);
+      currentNode.dataset.value = restoredValue != null ? String(restoredValue) : '';
 
       currentNode.dataset.oldSize = '';
       currentNode.dataset.oldMake = '';
@@ -690,7 +840,7 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
       tireSize.value = restoredSize;
       tireMake.value = restoredMake;
       tireRunko.value = restoredRunko;
-      if (tireNewMm) tireNewMm.value = String(restoredValue);
+      if (tireNewMm) tireNewMm.value = restoredValue != null ? String(restoredValue) : '';
 
       updateChangeButton(currentNode);
       updateTireNode(currentNode);
@@ -704,13 +854,13 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     const currentOldSize = (currentNode.dataset.oldSize || '').trim();
     const currentRunko = (currentNode.dataset.runko || '').trim().toUpperCase();
     const currentSize = formatTyreSize((currentNode.dataset.size || '').trim());
-    const currentMake = capitalizeWords(currentNode.dataset.make || '');
+    const currentMake = normalizeTyreMake(currentNode.dataset.make || '');
     const currentOldValue = currentNode.dataset.oldValue;
-    const currentValue = Number(currentNode.dataset.value || 0);
+    const currentValue = parseMeasurementValue(currentNode.dataset.value);
 
     currentNode.dataset.change = '1';
 
-    if (!currentOldValue || currentOldValue === '') {
+    if ((!currentOldValue || currentOldValue === '') && currentValue != null) {
       currentNode.dataset.oldValue = String(currentValue);
     }
 
@@ -739,38 +889,76 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     updateChangeButton(currentNode);
     updateTireNode(currentNode);
     setChangeTab('new');
-    tireRunko.focus();
-  };
+      tireRunko.focus();
+    };
+  }
 
-  changeRimBtn.onclick = ()=>{
+  if (changeRimBtn) {
+    changeRimBtn.onclick = ()=>{
     if (!currentNode) return;
     const works = getWorksSet(currentNode);
     if (works.has('Vanteen vaihto')) {
       works.delete('Vanteen vaihto');
+      currentNode.dataset.et = normalizeEtValue(currentNode.dataset.oldEt || currentNode.dataset.et || '');
       currentNode.dataset.oldRim = '';
+      currentNode.dataset.oldEt = '';
+      currentNode.dataset.workRim = '';
+      if (workRimProductInput) workRimProductInput.value = '';
+      if (workRimEtInput) workRimEtInput.value = normalizeEtValue(currentNode.dataset.et || '');
       setRimChangeTab('new');
     } else {
       const currentRim = (currentNode.dataset.rim || '').trim();
       if (!currentNode.dataset.oldRim && currentRim) {
         currentNode.dataset.oldRim = currentRim;
       }
+      if (!currentNode.dataset.oldEt && (currentNode.dataset.et || '').trim()) {
+        currentNode.dataset.oldEt = normalizeEtValue(currentNode.dataset.et || '');
+      }
+      currentNode.dataset.workRim = '';
+      if (workRimProductInput) workRimProductInput.value = '';
+      if (workRimEtInput) workRimEtInput.value = '';
       works.add('Vanteen vaihto');
       setRimChangeTab('new');
     }
     currentNode.dataset.works = [...works].join('|');
     updateRimChangeButton(currentNode);
     updateTireNode(currentNode);
-  };
+    };
+  }
 
-  workRimChecks.forEach(ch=>{
-    ch.addEventListener('change', ()=>{
-      if (ch.checked) {
-        workRimChecks.forEach(other=>{ if (other !== ch) other.checked = false; });
-      }
+  if (workRimProductInput) {
+    workRimProductInput.addEventListener('input', ()=>{
       if (!currentNode) return;
       currentNode.dataset.workRim = getSelectedWorkRim();
+      updateTireNode(currentNode);
     });
-  });
+
+    workRimProductInput.addEventListener('blur', ()=>{
+      if (!currentNode) return;
+      const value = getSelectedWorkRim();
+      workRimProductInput.value = value;
+      currentNode.dataset.workRim = value;
+      const etValue = getEtFromProductName(value);
+      if (workRimEtInput && etValue && !String(workRimEtInput.value || '').trim()) {
+        workRimEtInput.value = etValue;
+      }
+      updateTireNode(currentNode);
+    });
+  }
+
+  if (workRimEtInput) {
+    workRimEtInput.addEventListener('input', ()=>{
+      if (!currentNode) return;
+      currentNode.dataset.et = normalizeEtValue(workRimEtInput.value);
+    });
+
+    workRimEtInput.addEventListener('blur', ()=>{
+      if (!currentNode) return;
+      const value = normalizeEtValue(workRimEtInput.value);
+      workRimEtInput.value = value;
+      currentNode.dataset.et = value;
+    });
+  }
 
   noteToggle.onclick = ()=>{
     noteBox.style.display = noteBox.style.display === 'none' ? 'block' : 'none';
@@ -788,6 +976,7 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     if (!currentNode) return;
     const val = tireSize.value.trim();
     currentNode.dataset.size = val;
+    updateTireNode(currentNode);
   });
 
   tireSize.addEventListener('blur', ()=>{
@@ -795,19 +984,22 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     const val = formatTyreSize(tireSize.value.trim());
     tireSize.value = val;
     currentNode.dataset.size = val;
+    updateTireNode(currentNode);
   });
 
   tireMake.addEventListener('input', ()=>{
     if (!currentNode) return;
-    const val = capitalizeWords(tireMake.value);
+    const val = normalizeTyreMake(tireMake.value);
     currentNode.dataset.make = val;
+    updateTireNode(currentNode);
   });
 
   tireMake.addEventListener('blur', ()=>{
     if (!currentNode) return;
-    const val = capitalizeWords(tireMake.value);
+    const val = normalizeTyreMake(tireMake.value);
     tireMake.value = val;
     currentNode.dataset.make = val;
+    updateTireNode(currentNode);
   });
 
   tireRimChecks.forEach(ch=>{
@@ -830,11 +1022,7 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     if (!currentNode) return;
     const val = tireRunko.value.trim().toUpperCase();
     currentNode.dataset.runko = val;
-    if (val) {
-      currentNode.dataset.change = '1';
-      updateChangeButton(currentNode);
-      updateTireNode(currentNode);
-    }
+    updateTireNode(currentNode);
   });
 
   if (tireNewMm) {
@@ -869,36 +1057,44 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
   };
 
   function createTireNode(index, label, axleConfig, axleIndex) {
+    const wrap = document.createElement('div');
+    wrap.className = 'tire-node-stack';
+
     const node = document.createElement('button');
     node.type = 'button';
     node.className = 'tire-node';
     node.dataset.index = String(index);
     node.dataset.axle = String(axleIndex);
-    node.dataset.value = String(values[index] != null ? values[index] : 10);
+    node.dataset.value = values[index] != null ? String(values[index]) : '';
     if (notes[index]) node.dataset.note = notes[index];
     if (photos[index]) node.dataset.photo = photos[index];
     node.dataset.size = (prevSizes && prevSizes[index]) ? prevSizes[index] : (axleConfig && axleConfig.size ? axleConfig.size : '');
     node.dataset.size = formatTyreSize(node.dataset.size);
-    node.dataset.make = capitalizeWords((prevMakes && prevMakes[index]) ? prevMakes[index] : (axleConfig && axleConfig.make ? axleConfig.make : ''));
+    node.dataset.make = normalizeTyreMake((prevMakes && prevMakes[index]) ? prevMakes[index] : (axleConfig && axleConfig.make ? axleConfig.make : ''));
     node.dataset.rim = (prevRims && prevRims[index]) ? prevRims[index] : (axleConfig && axleConfig.rim ? axleConfig.rim : '');
     node.dataset.et = (prevEts && prevEts[index]) ? prevEts[index] : (axleConfig && axleConfig.et ? axleConfig.et : '');
     node.dataset.change = (prevChanges && prevChanges[index]) ? '1' : '';
     node.dataset.oldRunko = (prevOldRunkos && prevOldRunkos[index]) ? String(prevOldRunkos[index]).toUpperCase() : '';
     node.dataset.runko = (prevRunkos && prevRunkos[index]) ? String(prevRunkos[index]).toUpperCase() : '';
-    node.dataset.works = '';
-    node.dataset.workRim = '';
+    node.dataset.works = (prevWorks && prevWorks[index]) ? String(prevWorks[index]) : '';
+    node.dataset.workRim = (prevWorkRims && prevWorkRims[index]) ? String(prevWorkRims[index]) : '';
     node.dataset.oldRim = '';
+    node.dataset.oldEt = '';
     node.dataset.oldSize = '';
-    node.dataset.oldMake = (prevOldMakes && prevOldMakes[index]) ? capitalizeWords(prevOldMakes[index]) : '';
+    node.dataset.oldMake = (prevOldMakes && prevOldMakes[index]) ? normalizeTyreMake(prevOldMakes[index]) : '';
     node.dataset.oldValue = (prevOldValues && prevOldValues[index] != null) ? String(prevOldValues[index]) : '';
     node.innerHTML = `
       <span class="tire-label">${label || ''}</span>
-      <span class="tire-value">${formatMmValue(node.dataset.value)}</span>
-      <span class="tire-unit">mm</span>
+      <span class="tire-value">${values[index] != null ? formatMmValue(values[index]) : ''}</span>
+      <span class="tire-unit">${values[index] != null ? 'mm' : ''}</span>
     `;
+    const summary = document.createElement('div');
+    summary.className = 'position-work-summary';
+    wrap.appendChild(node);
+    wrap.appendChild(summary);
     updateTireNode(node);
     node.onclick = ()=> openModal(node, index);
-    return node;
+    return wrap;
   }
 
   cfg.forEach((axle, axleIdx)=>{
@@ -930,12 +1126,65 @@ function buildMeasurementUI(positions, config, containerEl, previous=null, prevN
     row.appendChild(right);
     diagram.appendChild(row);
   });
+
+  if (window.renderWorkSummaryFromNodes) window.renderWorkSummaryFromNodes();
+}
+
+function setMeasurementReadOnlyState(containerEl, readOnly) {
+  const modal = containerEl.querySelector('.tire-modal');
+  if (!modal) return;
+
+  const hiddenActionSelectors = [
+    '.copy-axle-btn',
+    '.copy-size-all-btn',
+    '.copy-rim-all-btn',
+    '.change-rim-btn',
+    '.change-tire-btn',
+    '.photo-btn'
+  ];
+
+  hiddenActionSelectors.forEach(selector=>{
+    const el = modal.querySelector(selector);
+    if (!el) return;
+    el.style.display = readOnly ? 'none' : '';
+    el.disabled = readOnly;
+  });
+
+  const readOnlyFields = [
+    '.tire-size-input',
+    '.tire-make-input',
+    '.tire-et-input',
+    '.tire-runko-input',
+    '.tire-new-mm-input',
+    '.note-input'
+  ];
+
+  readOnlyFields.forEach(selector=>{
+    const el = modal.querySelector(selector);
+    if (!el) return;
+    el.readOnly = readOnly;
+  });
+
+  const disabledSelectors = [
+    '.value-btn',
+    '.tire-rim-check',
+    '.tire-work-check',
+    '.work-rim-check',
+    '.photo-input'
+  ];
+
+  disabledSelectors.forEach(selector=>{
+    modal.querySelectorAll(selector).forEach(el=>{
+      el.disabled = readOnly;
+    });
+  });
 }
 
 function renderHistory(containerEl, HistoryManagerRef) {
   const list = HistoryManagerRef.load();
+  const drafts = window.DraftManager ? window.DraftManager.load() : [];
   containerEl.innerHTML = "";
-  if (!list.length) {
+  if (!list.length && !drafts.length) {
     containerEl.innerHTML = "<p>Ei tallennettuja raportteja.</p>";
     return;
   }
@@ -946,7 +1195,15 @@ function renderHistory(containerEl, HistoryManagerRef) {
     const company = r.company || "Ilman yritystä";
     if (!map[company]) map[company] = {};
     if (!map[company][r.plate]) map[company][r.plate] = [];
-    map[company][r.plate].push({rec:r, idx});
+    map[company][r.plate].push({rec:r, idx, type: 'completed'});
+  });
+
+  // Add drafts
+  drafts.forEach((d, idx)=>{
+    const company = d.company || "Ilman yritystä";
+    if (!map[company]) map[company] = {};
+    if (!map[company][d.plate]) map[company][d.plate] = [];
+    map[company][d.plate].push({rec:d, idx, type: 'draft'});
   });
 
   Object.keys(map).forEach(company=>{
@@ -956,6 +1213,8 @@ function renderHistory(containerEl, HistoryManagerRef) {
       <button class="btn-sm" data-download-company="${company}" data-mode="all" style="margin-left:8px;">Lataa kaikki</button>
       <button class="btn-sm" data-download-company="${company}" data-mode="measurement" style="margin-left:6px;">Lataa mittaukset</button>
       <button class="btn-sm" data-download-company="${company}" data-mode="work" style="margin-left:6px;">Lataa työt</button>
+      <button class="btn-sm" data-fleet-company="${company}" style="margin-left:6px;">Kalustoraportti</button>
+      <button class="btn-sm" data-fleet-table-company="${company}" style="margin-left:6px;">Taulukkoraportti</button>
     </h3>`;
 
     Object.keys(map[company]).forEach(plate=>{
@@ -1033,17 +1292,18 @@ function renderHistory(containerEl, HistoryManagerRef) {
       reportsContainer.style.transition = 'max-height 0.3s ease';
       reportsContainer.style.maxHeight = '1000px';
 
-      const measurementEntries = arr.filter(entry => (entry.rec.mode || 'measurement') !== 'work');
-      const workEntries = arr.filter(entry => entry.rec.mode === 'work');
+      const measurementEntries = arr.filter(entry => entry.type === 'completed' && (entry.rec.mode || 'measurement') !== 'work');
+      const workEntries = arr.filter(entry => entry.type === 'completed' && entry.rec.mode === 'work');
+      const draftEntries = arr.filter(entry => entry.type === 'draft');
 
-      function appendSection(title, entries) {
+      function appendSection(title, entries, isDraft = false) {
         const section = document.createElement('div');
         section.style.marginBottom = '8px';
 
         const sectionTitle = document.createElement('div');
         sectionTitle.style.fontSize = '0.85rem';
         sectionTitle.style.fontWeight = '600';
-        sectionTitle.style.color = '#475569';
+        sectionTitle.style.color = isDraft ? '#dc2626' : '#475569';
         sectionTitle.style.margin = '4px 0';
         sectionTitle.textContent = `${title} (${entries.length})`;
         section.appendChild(sectionTitle);
@@ -1067,13 +1327,16 @@ function renderHistory(containerEl, HistoryManagerRef) {
             : '';
           const item = document.createElement('div');
           item.className = 'history-item';
+          const updated = !isDraft && r.updatedAt ? ` • Muokattu ${r.updatedAt}` : '';
+          const actions = isDraft 
+            ? `<button class="btn-sm secondary" data-continue-draft="${i}">Jatka</button> <button class="btn-sm danger" data-del-draft="${i}">X</button>`
+            : `<button class="btn-sm secondary" data-view="${i}">Avaa</button> <button class="btn-sm primary" data-edit="${i}">Muokkaa</button> <button class="btn-sm" data-pdf="${i}">PDF</button> <button class="btn-sm danger" data-del="${i}">X</button>`;
           item.innerHTML = `
             <div>
-              <small>${r.date}${km}</small>
+              <small>${r.date}${km}${updated} ${isDraft ? '<span style="color:#dc2626;">[LUONNOS]</span>' : ''}</small>
             </div>
             <div class="history-actions">
-              <button class="btn-sm primary" data-pdf="${i}">PDF</button>
-              <button class="btn-sm danger" data-del="${i}">X</button>
+              ${actions}
             </div>
           `;
           section.appendChild(item);
@@ -1082,6 +1345,7 @@ function renderHistory(containerEl, HistoryManagerRef) {
         reportsContainer.appendChild(section);
       }
 
+      appendSection('Luonnokset', draftEntries, true);
       appendSection('Mittaukset', measurementEntries);
       appendSection('Työt', workEntries);
       
@@ -1109,9 +1373,15 @@ function renderHistory(containerEl, HistoryManagerRef) {
   containerEl.querySelectorAll('[data-del]').forEach(btn=>{
     btn.onclick = ()=>{
       const list = HistoryManagerRef.load();
-      list.splice(btn.dataset.del,1);
+      const idx = Number(btn.dataset.del);
+      const deleted = list[idx];
+      list.splice(idx,1);
+      if (deleted && deleted.plate && window.recomputeWearForPlate) {
+        window.recomputeWearForPlate(list, deleted.plate);
+      }
       HistoryManagerRef.save(list);
       renderHistory(containerEl, HistoryManagerRef);
+      if (window.refreshHomeUi) window.refreshHomeUi();
     };
   });
 
@@ -1122,6 +1392,19 @@ function renderHistory(containerEl, HistoryManagerRef) {
     };
   });
 
+  containerEl.querySelectorAll('[data-view]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const idx = Number(btn.dataset.view);
+      if (window.loadHistoryRecord) window.loadHistoryRecord(idx, false);
+    };
+  });
+
+  containerEl.querySelectorAll('[data-edit]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const idx = Number(btn.dataset.edit);
+      if (window.loadHistoryRecord) window.loadHistoryRecord(idx, true);
+    };
+  });
   containerEl.querySelectorAll('[data-download-company]').forEach(btn=>{
     btn.onclick = ()=>{
       const company = btn.dataset.downloadCompany;
@@ -1139,10 +1422,49 @@ function renderHistory(containerEl, HistoryManagerRef) {
       else alert('PDF-työkalu ei saatavilla');
     };
   });
+
+  containerEl.querySelectorAll('[data-fleet-company]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const company = btn.dataset.fleetCompany;
+      if (window.generateCompanyFleetOverviewReport) window.generateCompanyFleetOverviewReport(company);
+      else alert('Kalustoraportti ei saatavilla');
+    };
+  });
+
+  containerEl.querySelectorAll('[data-fleet-table-company]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const company = btn.dataset.fleetTableCompany;
+      if (window.generateCompanyFleetTableReport) window.generateCompanyFleetTableReport(company);
+      else alert('Taulukkoraportti ei saatavilla');
+    };
+  });
+
+  containerEl.querySelectorAll('[data-continue-draft]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const idx = Number(btn.dataset.continueDraft);
+      const drafts = window.DraftManager.load();
+      const draft = drafts[idx];
+      if (!draft) return;
+      if (window.loadDraftToEditor) window.loadDraftToEditor(draft);
+    };
+  });
+
+  containerEl.querySelectorAll('[data-del-draft]').forEach(btn=>{
+    btn.onclick = ()=>{
+      if (!confirm('Poistetaanko luonnos?')) return;
+      const idx = Number(btn.dataset.delDraft);
+      const drafts = window.DraftManager.load();
+      drafts.splice(idx, 1);
+      window.DraftManager.save(drafts);
+      renderHistory(containerEl, HistoryManagerRef);
+      if (window.refreshHomeUi) window.refreshHomeUi();
+    };
+  });
 }
 
 // Export to window
 window.buildAxleUI = buildAxleUI;
 window.buildPositions = buildPositions;
 window.buildMeasurementUI = buildMeasurementUI;
+window.setMeasurementReadOnlyState = setMeasurementReadOnlyState;
 window.renderHistory = renderHistory;

@@ -54,6 +54,12 @@ The application has been refactored into separate, maintainable modules:
 
 - **`jspdf.umd.min.js`** - jsPDF library for PDF generation
 
+- **`generate-product-catalog.ps1`** - Converts `tuotteet.xlsx` into browser-readable product JSON
+
+- **`product-catalog.json`** - Generated tyre/rim catalog in JSON format
+
+- **`product-catalog.js`** - Browser-loadable version of the generated catalog for local `file://` use
+
 ## How to Load
 
 The application loads modules in this order:
@@ -66,6 +72,26 @@ The application loads modules in this order:
 6. `ui-builder.js` - UI components
 7. `pdf-renderer.js` - Reporting
 8. Main script in `index.html` - Application logic
+
+If `tuotteet.xlsx` changes, regenerate the imported product catalog with:
+
+```powershell
+pwsh ./generate-product-catalog.ps1
+```
+
+If PowerShell 7 is not installed, Windows PowerShell also works:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\generate-product-catalog.ps1
+```
+
+The generated catalog currently feeds:
+
+- tyre size autocomplete
+- tyre make/model autocomplete
+- ET value autocomplete derived from rim products
+
+The full rim product list is also stored in the generated JSON for later UI use.
 
 All modules export functions and classes to the global `window` object for easy access from the main application script.
 
