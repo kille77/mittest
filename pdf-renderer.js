@@ -1207,6 +1207,17 @@ function buildTireChipHtml(tire, thresholds) {
     '</div>';
 }
 
+function positionToShortCode(label) {
+  const s = String(label || '').trim();
+  // Match: "Akseli N vasen/oikea [ulompi/sisempi]"
+  const m = s.match(/^Akseli\s+(\d+)\s+(vasen|oikea)(?:\s+(ulompi|sisempi))?$/i);
+  if (!m) return s; // fallback: return as-is
+  const n    = m[1];
+  const side = m[2].toLowerCase() === 'vasen' ? 'V' : 'O';
+  const qual = m[3] ? (m[3].toLowerCase() === 'ulompi' ? 'U' : 'S') : '';
+  return side + n + qual;
+}
+
 function generateCompanyFleetTableReport(company) {
   if (!window.HistoryManager) return alert('Historia ei saatavilla');
 
@@ -1257,7 +1268,7 @@ function generateCompanyFleetTableReport(company) {
     const fixedW = 24 + 20; // plate + date
     const posW = Math.max(12, Math.min(22, Math.floor((page.right - page.left - fixedW) / Math.max(1, allPositions.length))));
     const colWidths = [24, 20, ...allPositions.map(() => posW)];
-    const headers = ['Rekisteri', 'Päivä', ...allPositions.map(p => p.replace(/^Akseli \d+ /i, ''))];
+    const headers = ['Rekisteri', 'Päivä', ...allPositions.map(p => positionToShortCode(p))];
 
     const rows = latestPerPlate.map(r => {
       const rowVals = allPositions.map(pos => {
@@ -1369,7 +1380,7 @@ function generateCompanyFleetTableReport(company) {
   html += '<div class="wrap"><table><thead><tr>';
   html += '<th class="col-plate">Rekisteri</th><th>Päivämäärä</th>';
   allPositions.forEach(p => {
-    html += '<th>' + p.replace(/^Akseli \d+ /i, '') + '</th>';
+    html += '<th title="' + p + '">' + positionToShortCode(p) + '</th>';
   });
   html += '</tr></thead><tbody>';
 
